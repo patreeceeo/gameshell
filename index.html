@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+  <head>
+    <title>GameShell</title>
+  </head>
+  <body>
+    <ul id="messages"></ul>
+    <form action="">
+      <label>Your name<input id="yn" autocomplete="off" /></label>
+      <button>Log on</button>
+    </form>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script>
+      $(function () {
+        var socket = io();
+        $('form').submit(function(e){
+          e.preventDefault(); // prevents page reloading
+          socket.emit('hello', {
+            name: $('#yn').val(),
+          });
+          return false;
+        });
+        socket.on('hello', function(msg){
+          $('#messages').html(msg);
+        });
+      });
+    </script>
+  </body>
+</html>
