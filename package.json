@@ -8,7 +8,7 @@
   "main": "server.js",
   "scripts": {
     "build": "webpack",
-    "start": "webpack && tsc && node dist/server.js",
+    "start": "webpack && ts-node --transpile-only server.ts",
     "dev": "NODE_ENV=development webpack && ts-node-dev --clear --respawn --transpileOnly server.ts"
   },
   "dependencies": {
@@ -17,6 +17,7 @@
     "jsx-loader": "^0.13.2",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
+    "ts-node": "^8.10.1",
     "webpack": "^4.30.0",
     "webpack-cli": "^3.3.0",
     "webpack-dev-middleware": "^3.7.2"
