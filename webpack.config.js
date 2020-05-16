@@ -4,12 +4,12 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 module.exports = {
   mode: process.env.NODE_ENV,
   context: path.join(__dirname, './'),
-  entry: './app/index.tsx',
+  entry: './client/index.tsx',
   devtool: 'inline-source-map',
   plugins: [
     new HtmlWebpackPlugin({
       filename: 'index.html',
-      template: './app/index.html',
+      template: './client/index.html',
       title: 'Your website'
     })
   ],
