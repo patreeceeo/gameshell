@@ -1,9 +1,7 @@
 import * as express from "express";
-import { startSocketApp } from "./sockets";
+import { startMainLoop } from "./server";
 
 var app = express();
-
-const portNumber = process.env.PORT || 3000;
 
 if (process.env.NODE_ENV === "development") {
   const webpack = require("webpack");
@@ -16,16 +14,18 @@ if (process.env.NODE_ENV === "development") {
       publicPath: path.join(__dirname, "../", config.output.publicPath),
     })
   );
+} else {
+  app.get("/", function (_: any, response: any) {
+    response.sendFile(__dirname + "/dist/index.html");
+  });
 }
 
-app.get("/", function (_: any, response: any) {
-  response.sendFile(__dirname + "/dist/index.html");
-});
+// TODO: use NGINX instead
+app.use(
+  express.static("dist", {
+    // Don't cache HTML
+    extensions: ["css", "js"],
+  })
+);
 
-app.use(express.static("dist"));
-
-app.listen(portNumber, function () {
-  console.log("Your app is listening on port " + portNumber);
-});
-
-startSocketApp(app);
+startMainLoop(app);
