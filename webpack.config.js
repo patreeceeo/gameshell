@@ -1,12 +1,17 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const webpack = require('webpack');
 
 module.exports = {
   mode: process.env.NODE_ENV,
   context: path.join(__dirname, './'),
-  entry: './client/index.tsx',
+  entry: [
+    'webpack-hot-middleware/client',
+    './client/index.tsx'
+  ],
   devtool: 'inline-source-map',
   plugins: [
+    new webpack.HotModuleReplacementPlugin(),
     new HtmlWebpackPlugin({
       filename: 'index.html',
       template: './client/index.html',
@@ -15,10 +20,22 @@ module.exports = {
   ],
   output: {
     path: path.join(__dirname, 'dist'),
-    // use [name].bundle.js ?
-    filename: 'bundle.js',
+    filename: '[name].[hash].js',
     publicPath: '/',
-
+  },
+  optimization: {
+    // webpack emits boilderplate code for each module that allows `require` calls to work correctly.
+    // This tells webpack to put all of that in one file.
+    runtimeChunk: 'single',
+    splitChunks: {
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+        },
+      },
+    },
   },
   resolve: {
     extensions: ['.ts', '.tsx', '.js'],

@@ -5,13 +5,19 @@ var app = express();
 
 if (process.env.NODE_ENV === "development") {
   const webpack = require("webpack");
-  const path = require("path");
   const config = require("./webpack.config");
   const webpackDevMiddleware = require("webpack-dev-middleware");
   const compiler = webpack(config);
   app.use(
     webpackDevMiddleware(compiler, {
-      publicPath: path.join(__dirname, "../", config.output.publicPath),
+      noInfo: true,
+      publicPath: config.output.publicPath,
+    })
+  );
+  app.use(
+    require("webpack-hot-middleware")(compiler, {
+      log: console.log,
+      reload: true,
     })
   );
 } else {
