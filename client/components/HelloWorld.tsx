@@ -1,13 +1,16 @@
 import * as React from "react";
 import * as socketIO from "socket.io-client";
+import { IUser } from "../../server/state";
 
 const socket = socketIO();
 
 const HW: React.ComponentType<{}> = () => {
-  const [players, setPlayers] = React.useState([]);
+  const [players, setPlayers] = React.useState<IUser[]>([]);
 
   React.useEffect(() => {
-    socket.on("listPlayers", setPlayers);
+    socket.on("addPlayer", ({ players }: { players: any[] }) =>
+      setPlayers(players)
+    );
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -18,7 +21,7 @@ const HW: React.ComponentType<{}> = () => {
 
   return (
     <>
-      <h1>Who goes there???</h1>
+      <h1>Who goes there?</h1>
       <form onSubmit={handleSubmit}>
         <input type="text" name="userName" />
       </form>

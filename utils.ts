@@ -1,0 +1,2 @@
+export { partial } from "lodash";
+

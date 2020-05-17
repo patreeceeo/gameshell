@@ -27,11 +27,6 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // TODO: use NGINX instead
-app.use(
-  express.static("dist", {
-    // Don't cache HTML
-    extensions: ["css", "js"],
-  })
-);
+app.use(express.static("dist"));
 
 startMainLoop(app);

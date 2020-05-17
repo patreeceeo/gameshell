@@ -19,7 +19,7 @@ module.exports = {
       filename: 'index.html',
       template: './client/index.html',
       title: 'Your website'
-    })
+    }),
   ],
   output: {
     path: path.join(__dirname, 'dist'),
