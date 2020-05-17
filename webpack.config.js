@@ -6,7 +6,10 @@ module.exports = {
   mode: process.env.NODE_ENV,
   context: path.join(__dirname, './'),
   entry: [
-    'webpack-hot-middleware/client',
+    ...(process.env.NODE_ENV === "development" ? [
+      'webpack-hot-middleware/client',
+      'react-hot-loader/patch'
+    ] : []),
     './client/index.tsx'
   ],
   devtool: 'inline-source-map',
@@ -39,6 +42,9 @@ module.exports = {
   },
   resolve: {
     extensions: ['.ts', '.tsx', '.js'],
+    alias: process.env.NODE_ENV === "development" ? {
+      'react-dom': '@hot-loader/react-dom',
+    } : {},
   },
   module: {
     rules: [
