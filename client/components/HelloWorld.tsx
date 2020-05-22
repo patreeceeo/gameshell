@@ -11,7 +11,7 @@ const HW: React.ComponentType<{}> = () => {
     socket.on("addPlayer", ({ players }: { players: any[] }) =>
       setPlayers(players)
     );
-  });
+  }, [socket]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
