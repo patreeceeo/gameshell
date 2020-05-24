@@ -23,7 +23,8 @@
     "ts-node": "^8.10.1",
     "webpack": "^4.30.0",
     "webpack-cli": "^3.3.0",
-    "webpack-dev-middleware": "^3.7.2"
+    "webpack-dev-middleware": "^3.7.2",
+    "xstate": "^4.10.0"
   },
   "engines": {
     "node": "12.x"
@@ -49,6 +50,7 @@
     "@types/socket.io-client": "^1.4.33",
     "@types/webpack": "^4.41.12",
     "@types/webpack-dev-middleware": "^3.7.0",
+    "@xstate/test": "^0.4.0",
     "jest": "^26.0.1",
     "react-hot-loader": "^4.12.21",
     "ts-jest": "^26.0.0",
