@@ -1,5 +1,6 @@
 import sut, {
   TFriendsAcceptInvite,
+  TFriendsArrive,
   TInviteFriends,
   TIdentifyUser,
   TSelectGame,
@@ -65,6 +66,39 @@ describe("rootMachine", () => {
   });
 
   describe("what", () => {
+    it("keeps track of what friends are online", () => {
+      const service = interpret(
+        sut
+      ); /*.onTransition((state) =>
+        console.log("transition", state.value)
+      );*/
+      service.start();
+
+      // TODO: DRY up tests by using machine.transition
+      service.send({
+        type: "IDENTIFY_USER",
+        userName: "morthy",
+      } as TIdentifyUser);
+
+      service.send({ type: "FINISH_WORKING" });
+
+      const newState = service.send({
+        type: "FRIENDS_ARRIVE",
+        users: [
+          {
+            userName: "fry",
+          },
+        ],
+      } as TFriendsArrive);
+
+      expect(newState.context.friendsByUserName).toEqual({
+        fry: {
+          isInvited: false,
+          hasAcceptedInvite: false,
+        },
+      });
+    });
+
     it("allows user to invite friends", () => {
       // TODO: how does the friend list get populated?
       // a parallel machine?
@@ -184,6 +218,8 @@ describe("rootMachine", () => {
         }),
       });
     });
+
+    // TODO: recieve invitations
 
     it("allows user to select a game", () => {
       const service = interpret(

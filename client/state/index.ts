@@ -1,8 +1,10 @@
+// TODO refactor to use @state/fsm ?
 import { Machine, StateNodeConfig, assign } from "xstate";
 // TODO use T instead of I
 // also favor classes over interfaces?
 // also find a central place for these types
 import * as req from "../requests";
+import { IUser } from "../../server/state";
 
 interface TWaitThenWorkStates {
   states: {
@@ -25,6 +27,7 @@ type TWaitThenWorkStateNodeConfig = StateNodeConfig<
   TEvent
 >;
 
+/* MAYBE TODO: a better name than 'friend'? */
 interface TFriend {
   isInvited: boolean;
   hasAcceptedInvite: boolean;
@@ -79,6 +82,11 @@ type TSetStatus = {
   currentStatus: req.UserStatus;
 };
 
+export type TFriendsArrive = {
+  type: "FRIENDS_ARRIVE";
+  users: IUser[];
+};
+
 type TErrorEvent = {
   type: string;
   data: Error;
@@ -93,6 +101,7 @@ type TEvent =
   | { type: "FINISH_WORKING" }
   | TInviteFriends
   | TFriendsAcceptInvite
+  | TFriendsArrive
   | TSelectGame
   | { type: "START_GAME" }
   | { type: "JOIN_GAME" }
@@ -162,6 +171,21 @@ const ackAcceptedInvites = assign({
         [name]: {
           ...acc[name],
           hasAcceptedInvite: true,
+        },
+      };
+    }, context.friendsByUserName);
+  },
+});
+
+const ackFriendsArrive = assign({
+  friendsByUserName: (context: TContext, event: TFriendsArrive) => {
+    // TODO: watch out for memory leaks!
+    return event.users.reduce((acc: TFriendCollection, { userName }) => {
+      return {
+        ...acc,
+        [userName]: {
+          isInvited: false,
+          hasAcceptedInvite: false,
         },
       };
     }, context.friendsByUserName);
@@ -263,6 +287,10 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
               INVITE_FRIENDS: {
                 target: "working",
                 actions: inviteFriends,
+              },
+              FRIENDS_ARRIVE: {
+                target: "working",
+                actions: ackFriendsArrive,
               },
               FRIENDS_ACCEPT_INVITE: {
                 target: "working",
