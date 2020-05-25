@@ -22,7 +22,7 @@ describe("rootMachine", () => {
       const newState = service.send({
         type: "IDENTIFY_USER",
         userName: "wilma",
-      });
+      } as TIdentifyUser);
 
       expect(newState.context.localUserName).toBe("wilma");
       expect(newState.matches("who.working")).toBe(true);
@@ -84,6 +84,16 @@ describe("rootMachine", () => {
       });
     });
 
+    it("allows user to select a game", () => {
+      const newState = sut.transition("what", {
+        type: "SELECT_GAME",
+        gameId: "boggle",
+      } as TSelectGame);
+
+      expect(newState.context.selectedGameId).toEqual("boggle");
+    });
+
+    // TODO must select game first
     it("allows user to invite friends", () => {
       const sutWithContext = sut.withContext({
         ...sut.context,
@@ -164,47 +174,23 @@ describe("rootMachine", () => {
       });
     });
 
-    // TODO: recieve invitations
-
-    it("allows user to select a game", () => {
-      const newState = sut.transition("what", {
-        type: "SELECT_GAME",
-        gameId: "boggle",
-      } as TSelectGame);
-
-      expect(newState.context.selectedGameId).toEqual("boggle");
-    });
-
     it("validates", () => {
-      const service = interpret(
-        sut
-      ); /*.onTransition((state) =>
-        console.log("transition", state.value)
-      );*/
-      service.start();
-      service.send({
-        type: "IDENTIFY_USER",
-        userName: "morthy",
-      } as TIdentifyUser);
-
-      service.send({ type: "FINISH_WORKING" });
-
-      service.send({
+      let state = sut.transition("what", {
         type: "INVITE_FRIENDS",
         userNames: ["morty"],
       } as TInviteFriends);
 
-      service.send({
+      state = sut.transition(state, {
         type: "FRIENDS_ACCEPT_INVITE",
         userNames: ["morty"],
       } as TFriendsAcceptInvite);
 
-      const newState = service.send({
+      state = sut.transition(state, {
         type: "SELECT_GAME",
         gameId: "min3test",
       } as TSelectGame);
 
-      expect(newState.context.invalidBecause).toEqual(
+      expect(state.context.invalidBecause).toEqual(
         expect.arrayContaining([
           {
             type: "numberOfPlayers",
