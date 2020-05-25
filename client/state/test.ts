@@ -67,22 +67,7 @@ describe("rootMachine", () => {
 
   describe("what", () => {
     it("keeps track of what friends are online", () => {
-      const service = interpret(
-        sut
-      ); /*.onTransition((state) =>
-        console.log("transition", state.value)
-      );*/
-      service.start();
-
-      // TODO: DRY up tests by using machine.transition
-      service.send({
-        type: "IDENTIFY_USER",
-        userName: "morthy",
-      } as TIdentifyUser);
-
-      service.send({ type: "FINISH_WORKING" });
-
-      const newState = service.send({
+      const newState = sut.transition("what", {
         type: "FRIENDS_ARRIVE",
         users: [
           {
@@ -100,8 +85,6 @@ describe("rootMachine", () => {
     });
 
     it("allows user to invite friends", () => {
-      // TODO: how does the friend list get populated?
-      // a parallel machine?
       const sutWithContext = sut.withContext({
         ...sut.context,
         friendsByUserName: {
@@ -120,31 +103,17 @@ describe("rootMachine", () => {
         },
       });
 
-      const service = interpret(
-        sutWithContext
-      ); /*.onTransition((state) =>
-        console.log("transition", state.value)
-      );*/
-      service.start();
-
-      service.send({
-        type: "IDENTIFY_USER",
-        userName: "morthy",
-      } as TIdentifyUser);
-
-      service.send({ type: "FINISH_WORKING" });
-
-      service.send({
+      let state = sutWithContext.transition("what", {
         type: "INVITE_FRIENDS",
         userNames: ["morty"],
       } as TInviteFriends);
 
-      const newState = service.send({
+      state = sutWithContext.transition(state, {
         type: "INVITE_FRIENDS",
         userNames: ["rick"],
       } as TInviteFriends);
 
-      expect(newState.context.friendsByUserName).toEqual({
+      expect(state.context.friendsByUserName).toEqual({
         morty: expect.objectContaining({
           isInvited: true,
         }),
@@ -162,7 +131,7 @@ describe("rootMachine", () => {
         ...sut.context,
         friendsByUserName: {
           morty: {
-            isInvited: false,
+            isInvited: true,
             hasAcceptedInvite: false,
           },
           rick: {
@@ -176,32 +145,8 @@ describe("rootMachine", () => {
         },
       });
 
-      const service = interpret(
-        sutWithContext
-      ); /*.onTransition((state) =>
-        console.log("transition", state.value)
-      );*/
-      service.start();
-
-      service.send({
-        type: "IDENTIFY_USER",
-        userName: "morthy",
-      } as TIdentifyUser);
-
-      service.send({ type: "FINISH_WORKING" });
-
-      service.send({
-        type: "INVITE_FRIENDS",
-        userNames: ["morty"],
-      } as TInviteFriends);
-
-      service.send({
-        type: "INVITE_FRIENDS",
-        userNames: ["rick"],
-      } as TInviteFriends);
-
       // TODO: defend against accepting invitations that haven't been sent?
-      const newState = service.send({
+      const newState = sutWithContext.transition("what", {
         type: "FRIENDS_ACCEPT_INVITE",
         userNames: ["morty"],
       } as TFriendsAcceptInvite);
@@ -222,21 +167,7 @@ describe("rootMachine", () => {
     // TODO: recieve invitations
 
     it("allows user to select a game", () => {
-      const service = interpret(
-        sut
-      ); /*.onTransition((state) =>
-        console.log("transition", state.value)
-      );*/
-      service.start();
-
-      service.send({
-        type: "IDENTIFY_USER",
-        userName: "morthy",
-      } as TIdentifyUser);
-
-      service.send({ type: "FINISH_WORKING" });
-
-      const newState = service.send({
+      const newState = sut.transition("what", {
         type: "SELECT_GAME",
         gameId: "boggle",
       } as TSelectGame);
