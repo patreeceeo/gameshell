@@ -15,7 +15,12 @@ interface TWaitThenWorkStates {
         ready?: {};
       };
     };
-    working: {};
+    working: {
+      states: {
+        fetching?: {};
+        validating?: {};
+      };
+    };
     finished?: {};
     error?: {};
   };
@@ -42,18 +47,29 @@ interface TInvalidReason {
   [key: string]: any;
 }
 
+interface TInviteRecieved {
+  userNameFrom: string;
+  gameId?: string;
+}
+
+interface TInvitesRecievedCollection {
+  [userName: string]: TInviteRecieved;
+}
+
 interface TContext {
   localUserName?: string;
   friendsByUserName: TFriendCollection;
   selectedGameId?: string;
   error?: Error;
   invalidBecause: TInvalidReason[];
+  invitesRecievedByUserName: TInvitesRecievedCollection;
 }
 
 interface TStateSchema {
   states: {
     who: TWaitThenWorkStateNodeConfig;
     what: TWaitThenWorkStateNodeConfig;
+    respondToInvites: TWaitThenWorkStateNodeConfig;
   };
 }
 
@@ -70,6 +86,11 @@ export type TInviteFriends = {
 export type TFriendsAcceptInvite = {
   type: "FRIENDS_ACCEPT_INVITE";
   userNames: string[];
+};
+
+export type TRecieveInvites = {
+  type: "RECIEVE_INVITES";
+  payload: TInviteRecieved[];
 };
 
 export type TSelectGame = {
@@ -100,6 +121,7 @@ type TEvent =
   | TIdentifyUser
   | { type: "FINISH_WORKING" }
   | TInviteFriends
+  | TRecieveInvites
   | TFriendsAcceptInvite
   | TFriendsArrive
   | TSelectGame
@@ -192,6 +214,21 @@ const ackFriendsArrive = assign({
   },
 });
 
+const ackRecieveInvites = assign({
+  invitesRecievedByUserName: (context: TContext, event: TRecieveInvites) => {
+    // TODO: watch out for memory leaks!
+    return event.payload.reduce((acc: TInvitesRecievedCollection, invite) => {
+      return {
+        ...acc,
+        [invite.userNameFrom]: {
+          gameId: invite.gameId,
+          hasBeenAccepted: false,
+        },
+      };
+    }, context.invitesRecievedByUserName);
+  },
+});
+
 const selectGame = assign({
   selectedGameId: (_, { gameId }: TSelectGame) => gameId,
 });
@@ -219,12 +256,13 @@ const setInvalid = assign({
 
 const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
   {
-    id: "lobby",
+    id: "concierge",
     initial: "who",
     context: {
       localUserName: null,
       friendsByUserName: {},
       selectedGameId: null,
+      invitesRecievedByUserName: {},
       invalidBecause: [],
     },
     states: {
@@ -273,7 +311,6 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
         states: {
           waiting: {
             initial: "initial",
-            onDone: "working",
             on: {
               SET_STATUS: {
                 // Should this go to a different state?
@@ -284,17 +321,21 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
                 target: "working",
                 actions: selectGame,
               },
-              INVITE_FRIENDS: {
-                target: "working",
-                actions: inviteFriends,
-              },
               FRIENDS_ARRIVE: {
                 target: "working",
                 actions: ackFriendsArrive,
               },
+              INVITE_FRIENDS: {
+                target: "working",
+                actions: inviteFriends,
+              },
               FRIENDS_ACCEPT_INVITE: {
                 target: "working",
                 actions: ackAcceptedInvites,
+              },
+              RECIEVE_INVITES: {
+                target: "#concierge.respondToInvites",
+                actions: ackRecieveInvites,
               },
             },
             states: {
@@ -306,18 +347,63 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
             },
           },
           working: {
-            on: {
-              "": [
-                {
-                  target: "waiting.ready",
-                  cond: "areSelectionsValid",
+            initial: "validating",
+            states: {
+              validating: {
+                on: {
+                  "": [
+                    {
+                      target: "fetching",
+                      cond: "areSelectionsValid",
+                    },
+                    {
+                      target: "#concierge.what.waiting.invalid",
+                    },
+                  ],
                 },
-                {
-                  target: "waiting.invalid",
+              },
+              fetching: {
+                invoke: {
+                  id: "invites",
+                  src: (context: TContext, event: TInviteFriends) => {
+                    if (event.type === "INVITE_FRIENDS") {
+                      return req.sendInvites(
+                        event.userNames,
+                        context.selectedGameId
+                      );
+                    } else {
+                      return Promise.resolve({});
+                    }
+                  },
+                  onDone: "#concierge.what.waiting.ready",
+                  onError: {
+                    target: "#concierge.what.waiting",
+                    actions: handleError,
+                  },
                 },
-              ],
+              },
             },
           },
+          error: {},
+          // validating: {
+          //   on: {
+          //     "": [
+          //       {
+          //         target: "waiting.ready",
+          //         cond: "areSelectionsValid",
+          //       },
+          //       {
+          //         target: "waiting.invalid",
+          //       },
+          //     ],
+          //   },
+        },
+      },
+      respondToInvites: {
+        initial: "waiting",
+        states: {
+          waiting: {},
+          working: {},
         },
       },
     },

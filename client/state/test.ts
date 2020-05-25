@@ -4,12 +4,14 @@ import sut, {
   TInviteFriends,
   TIdentifyUser,
   TSelectGame,
+  TRecieveInvites,
 } from ".";
 import { interpret } from "xstate";
-import { identifyUser } from "../requests";
+import { identifyUser, sendInvites } from "../requests";
 
 jest.mock("../requests", () => ({
   identifyUser: jest.fn(),
+  sendInvites: jest.fn(),
 }));
 
 describe("rootMachine", () => {
@@ -37,7 +39,7 @@ describe("rootMachine", () => {
       service.send({
         type: "IDENTIFY_USER",
         userName: "wilma",
-      });
+      } as TIdentifyUser);
 
       expect(identifyUser).toHaveBeenCalledTimes(1);
       expect(identifyUser).toHaveBeenCalledWith({ userName: "wilma" });
@@ -56,7 +58,7 @@ describe("rootMachine", () => {
       const newState = service.send({
         type: "IDENTIFY_USER",
         userName: "wilma",
-      });
+      } as TIdentifyUser);
 
       service.execute(newState, newState.actions as any);
 
@@ -93,7 +95,6 @@ describe("rootMachine", () => {
       expect(newState.context.selectedGameId).toEqual("boggle");
     });
 
-    // TODO must select game first
     it("allows user to invite friends", () => {
       const sutWithContext = sut.withContext({
         ...sut.context,
@@ -118,6 +119,9 @@ describe("rootMachine", () => {
         userNames: ["morty"],
       } as TInviteFriends);
 
+      // TODO Skip over the invoked service for now
+      state.value = { what: { waiting: "ready" } };
+
       state = sutWithContext.transition(state, {
         type: "INVITE_FRIENDS",
         userNames: ["rick"],
@@ -133,6 +137,38 @@ describe("rootMachine", () => {
         kronenberger: expect.objectContaining({
           isInvited: false,
         }),
+      });
+    });
+
+    it("lets the server know who is invited", (done) => {
+      // TODO: allow jest to auto-mock
+      ((sendInvites as any) as jest.SpyInstance).mockImplementation(() =>
+        Promise.resolve({})
+      );
+      const service = interpret(
+        sut
+      ); /*.onTransition((state, event) => {
+        console.log("transitioning from", state.value, "because of", event);
+      });*/
+      service.start();
+      service.send({
+        type: "IDENTIFY_USER",
+        userName: "wilma",
+      } as TIdentifyUser);
+
+      service.send({ type: "FINISH_WORKING" });
+
+      service.send({ type: "SELECT_GAME", gameId: "boggle" } as TSelectGame);
+
+      setTimeout(() => {
+        service.send({
+          type: "INVITE_FRIENDS",
+          userNames: ["JoJo", "Elsa"],
+        } as TInviteFriends);
+
+        expect(sendInvites).toHaveBeenCalledTimes(1);
+        expect(sendInvites).toHaveBeenCalledWith(["JoJo", "Elsa"], "boggle");
+        done();
       });
     });
 
@@ -174,16 +210,52 @@ describe("rootMachine", () => {
       });
     });
 
+    it("allows user to recieve invites", () => {
+      // TODO: can send multiple events to transition?
+      let state = sut.transition("what", {
+        type: "RECIEVE_INVITES",
+        payload: [
+          { userNameFrom: "JoJo" },
+          {
+            userNameFrom: "Elsa",
+            gameId: "hideseek",
+          },
+          {
+            userNameFrom: "JoJo",
+            gameId: "militia",
+          },
+        ],
+      } as TRecieveInvites);
+
+      expect(state.context.invitesRecievedByUserName).toEqual({
+        Elsa: {
+          gameId: "hideseek",
+          hasBeenAccepted: false,
+        },
+        JoJo: {
+          gameId: "militia",
+          hasBeenAccepted: false,
+        },
+      });
+      expect(state.matches("respondToInvites")).toBe(true);
+    });
+
     it("validates", () => {
       let state = sut.transition("what", {
         type: "INVITE_FRIENDS",
         userNames: ["morty"],
       } as TInviteFriends);
 
+      // TODO Skip over the invoked service for now
+      state.value = { what: { waiting: "ready" } };
+
       state = sut.transition(state, {
         type: "FRIENDS_ACCEPT_INVITE",
         userNames: ["morty"],
       } as TFriendsAcceptInvite);
+
+      // TODO Skip over the invoked service for now
+      state.value = { what: { waiting: "ready" } };
 
       state = sut.transition(state, {
         type: "SELECT_GAME",

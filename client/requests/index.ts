@@ -33,6 +33,15 @@ export async function setStatus(
   return { success: true };
 }
 
+export async function sendInvites(
+  userNames: string[],
+  gameId?: string
+): Promise<Response> {
+  void userNames;
+  void gameId;
+  return { success: true };
+}
+
 export async function startGame(
   players: Identity[],
   gameId: string
