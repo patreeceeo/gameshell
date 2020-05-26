@@ -61,6 +61,7 @@ interface TContext {
   friendsByUserName: TFriendCollection;
   selectedGameId?: string;
   error?: Error;
+  // TODO map invalid reason type to invalid reasons so only 1 per type?
   invalidBecause: TInvalidReason[];
   invitesRecievedByUserName: TInvitesRecievedCollection;
 }
@@ -70,6 +71,7 @@ interface TStateSchema {
     who: TWaitThenWorkStateNodeConfig;
     what: TWaitThenWorkStateNodeConfig;
     respondToInvites: TWaitThenWorkStateNodeConfig;
+    startGame: {};
   };
 }
 
@@ -87,6 +89,8 @@ export type TFriendsAcceptInvite = {
   type: "FRIENDS_ACCEPT_INVITE";
   userNames: string[];
 };
+
+// TODO ACCEPT_INVITE
 
 export type TRecieveInvites = {
   type: "RECIEVE_INVITES";
@@ -154,15 +158,19 @@ function getPlayerCount(context: TContext) {
 }
 
 function areSelectionsValid(context: TContext) {
-  const [min, max] = getMinAndMaxPlayers(context.selectedGameId) || [
-    0,
-    Infinity,
-  ];
-  /* add one to count local user
-   * TODO: what if local user is spectating?
-   */
-  const playerCount = getPlayerCount(context);
-  return playerCount >= min && playerCount <= max;
+  if (context.selectedGameId) {
+    const [min, max] = getMinAndMaxPlayers(context.selectedGameId) || [
+      0,
+      Infinity,
+    ];
+    /* add one to count local user
+     * TODO: what if local user is spectating?
+     */
+    const playerCount = getPlayerCount(context);
+    return playerCount >= min && playerCount <= max;
+  } else {
+    return false;
+  }
 }
 
 export const identifyUser = assign({
@@ -337,6 +345,10 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
                 target: "#concierge.respondToInvites",
                 actions: ackRecieveInvites,
               },
+              START_GAME: {
+                target: "#concierge.startGame",
+                cond: "areSelectionsValid",
+              },
             },
             states: {
               initial: {},
@@ -385,18 +397,6 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
             },
           },
           error: {},
-          // validating: {
-          //   on: {
-          //     "": [
-          //       {
-          //         target: "waiting.ready",
-          //         cond: "areSelectionsValid",
-          //       },
-          //       {
-          //         target: "waiting.invalid",
-          //       },
-          //     ],
-          //   },
         },
       },
       respondToInvites: {
@@ -406,6 +406,7 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
           working: {},
         },
       },
+      startGame: {},
     },
   },
   {

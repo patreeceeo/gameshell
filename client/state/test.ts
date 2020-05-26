@@ -272,5 +272,27 @@ describe("rootMachine", () => {
         ])
       );
     });
+
+    it("does not allow the user to start the game from an invalid state", () => {
+      let state = sut.transition("what.waiting.ready", {
+        type: "START_GAME",
+      });
+
+      expect(state.matches("startGame")).toBe(false);
+    });
+
+    it("allows the user to start the game from a valid state", () => {
+      const sutTriviallyValid = sut.withContext({
+        ...sut.context,
+        selectedGameId: "unknown",
+      });
+      let state = sutTriviallyValid.transition("what.waiting.ready", {
+        type: "START_GAME",
+      });
+
+      expect(state.matches("startGame")).toBe(true);
+    });
+
+    // TODO let server know about starting game
   });
 });
