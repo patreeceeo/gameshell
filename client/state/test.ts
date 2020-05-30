@@ -22,7 +22,7 @@ jest.mock("../requests", () => ({
   acceptInvite: jest.fn(),
 }));
 
-describe("rootMachine", () => {
+describe("concierge machine", () => {
   beforeEach(jest.resetAllMocks);
 
   describe("who", () => {
@@ -50,62 +50,71 @@ describe("rootMachine", () => {
       expect(identifyUser).toHaveBeenCalledWith({ userName: "wilma" });
     });
 
-    // TODO prevent duplicate usernames
-    // it("does not allow duplicate user names via client-side validation", () => {
-    //   const sutWithContext = sut.withContext({
-    //     ...sut.context,
-    //     friendsByUserName: {
-    //       Rick: {
-    //         isInvited: true,
-    //         hasAcceptedInvite: false,
-    //       },
-    //     },
-    //   });
+    it("does not allow duplicate user names via client-side validation", () => {
+      const sutWithContext = sut.withContext({
+        ...sut.context,
+        friendsByUserName: {
+          Rick: {
+            isInvited: true,
+            hasAcceptedInvite: false,
+          },
+        },
+      });
 
-    //   const service = interpret(sutWithContext);
-    //   service.start();
+      const service = interpret(sutWithContext);
+      service.start();
 
-    //   service.send({
-    //     type: "IDENTIFY_USER",
-    //     userName: "Rick",
-    //   } as TIdentifyUser);
+      service.send({
+        type: "IDENTIFY_USER",
+        userName: "Rick",
+      } as TIdentifyUser);
 
-    //   expect(identifyUser).toHaveBeenCalledTimes(0);
-    //   expect(sutWithContext.context.invalidBecause).toBe(
-    //     expect.arrayContaining([
-    //       {
-    //         type: "duplicateUserName",
-    //         userName: "Rick",
-    //       },
-    //     ])
-    //   );
-    // });
+      expect(identifyUser).toHaveBeenCalledTimes(0);
+      expect(service.state.context.invalidBecause).toStrictEqual(
+        expect.arrayContaining([
+          {
+            type: "duplicateUserName",
+            userName: "Rick",
+          },
+        ])
+      );
+    });
 
-    // it("does not allow duplicate user names via server-side validation", () => {
-    //   ((identifyUser as any) as jest.SpyInstance).mockImplementation(() =>
-    //     Promise.reject({
-    //       reasonType: "duplicateUserName",
-    //     })
-    //   );
+    it("does not allow duplicate user names via server-side validation", (done) => {
+      ((identifyUser as any) as jest.SpyInstance).mockImplementation(() =>
+        Promise.reject({
+          invalidReason: {
+            type: "duplicateUserName",
+            userName: "Rick",
+          },
+        })
+      );
 
-    //   const service = interpret(sut);
-    //   service.start();
+      const service = interpret(
+        sut
+      ); /*.onTransition((state, event) => {
+        console.log("recieved:", event.type);
+        console.log("trans to:", state.value);
+      });*/
+      service.start();
 
-    //   service.send({
-    //     type: "IDENTIFY_USER",
-    //     userName: "Rick",
-    //   } as TIdentifyUser);
+      service.send({
+        type: "IDENTIFY_USER",
+        userName: "Rick",
+      } as TIdentifyUser);
 
-    //   expect(identifyUser).toHaveBeenCalledTimes(0);
-    //   expect(sut.context.invalidBecause).toBe(
-    //     expect.arrayContaining([
-    //       {
-    //         type: "duplicateUserName",
-    //         userName: "Rick",
-    //       },
-    //     ])
-    //   );
-    // });
+      setTimeout(() => {
+        expect(service.state.context.invalidBecause).toStrictEqual(
+          expect.arrayContaining([
+            {
+              type: "duplicateUserName",
+              userName: "Rick",
+            },
+          ])
+        );
+        done();
+      });
+    });
 
     it.skip("handles errors", () => {
       // TODO

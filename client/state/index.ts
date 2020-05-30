@@ -120,7 +120,10 @@ export type TStartGame = { type: "START_GAME" };
 
 type TErrorEvent = {
   type: string;
-  data: Error;
+  data: {
+    error?: Error;
+    invalidReason?: TInvalidReason;
+  };
 };
 
 type TRetry = {
@@ -180,6 +183,10 @@ function areSelectionsValid(context: TContext) {
   } else {
     return false;
   }
+}
+
+function uniqueUserNameLocal(context: TContext, event: TIdentifyUser) {
+  return !context.friendsByUserName[event.userName];
 }
 
 export const identifyUser = assign({
@@ -267,18 +274,31 @@ const setStatus = assign({
   currentStatus: (_, { currentStatus }: TSetStatus) => ({ currentStatus }),
 });
 
-const handleError = assign({
-  error: (_, event: TErrorEvent) => {
-    return event.data;
+const handleInvalidReason = assign({
+  invalidBecause: (context: TContext, event: TErrorEvent) => {
+    return [
+      ...context.invalidBecause,
+      ...(event.data.invalidReason ? [event.data.invalidReason] : []),
+    ];
   },
 });
 
-const setInvalid = assign({
+const setInvalidNumberOfPlayers = assign({
   invalidBecause: (context: TContext) => {
     const reason = {
       type: "numberOfPlayers",
       allowedRange: getMinAndMaxPlayers(context.selectedGameId),
       currentPlayerCount: getPlayerCount(context),
+    };
+    return [...context.invalidBecause, reason];
+  },
+});
+
+const setInvalidDuplicateUserName = assign({
+  invalidBecause: (context: TContext, event: TIdentifyUser) => {
+    const reason = {
+      type: "duplicateUserName",
+      userName: event.userName,
     };
     return [...context.invalidBecause, reason];
   },
@@ -302,10 +322,22 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
         states: {
           waiting: {
             on: {
-              IDENTIFY_USER: {
-                target: "working",
-                actions: identifyUser,
-              },
+              IDENTIFY_USER: [
+                {
+                  target: "working",
+                  actions: identifyUser,
+                  cond: "uniqueUserNameLocal",
+                },
+                {
+                  target: ".invalid",
+                  actions: setInvalidDuplicateUserName,
+                },
+              ],
+            },
+            initial: "initial",
+            states: {
+              initial: {},
+              invalid: {},
             },
           },
           working: {
@@ -322,7 +354,7 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
               },
               onError: {
                 target: "error",
-                actions: handleError,
+                actions: handleInvalidReason,
               },
             },
           },
@@ -378,14 +410,13 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
                 },
                 {
                   target: ".invalid",
+                  actions: setInvalidNumberOfPlayers,
                 },
               ],
             },
             states: {
               initial: {},
-              invalid: {
-                entry: setInvalid,
-              },
+              invalid: {},
               ready: {},
             },
           },
@@ -417,7 +448,7 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
                   onDone: "#concierge.what.waiting.ready",
                   onError: {
                     target: "#concierge.what.waiting",
-                    actions: handleError,
+                    // actions: handleError,
                   },
                 },
               },
@@ -448,7 +479,7 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
           onDone: "#concierge.what.waiting.ready",
           onError: {
             target: "#concierge.what.waiting",
-            actions: handleError,
+            // actions: handleError,
           },
         },
       },
@@ -457,6 +488,7 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
   {
     guards: {
       areSelectionsValid,
+      uniqueUserNameLocal,
     },
   }
 );
