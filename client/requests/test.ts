@@ -16,13 +16,6 @@ test("setStatus", async () => {
 });
 
 test("startGame", async () => {
-  const result = await sut.startGame(
-    [
-      {
-        userName: "fred",
-      },
-    ],
-    "boggle"
-  );
+  const result = await sut.startGame(["fred"], "boggle");
   expect(result.success).toBe(true);
 });

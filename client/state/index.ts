@@ -48,7 +48,8 @@ interface TInvalidReason {
 }
 
 interface TInviteRecieved {
-  userNameFrom: string;
+  userNameRemote: string;
+  hasBeenAccepted: boolean;
   gameId?: string;
 }
 
@@ -57,7 +58,7 @@ interface TInvitesRecievedCollection {
 }
 
 interface TContext {
-  localUserName?: string;
+  userNameLocal?: string;
   friendsByUserName: TFriendCollection;
   selectedGameId?: string;
   error?: Error;
@@ -90,7 +91,10 @@ export type TFriendsAcceptInvite = {
   userNames: string[];
 };
 
-// TODO ACCEPT_INVITE
+export type TAcceptInvite = {
+  type: "ACCEPT_INVITE";
+  userNameRemote: string;
+};
 
 export type TRecieveInvites = {
   type: "RECIEVE_INVITES";
@@ -112,6 +116,8 @@ export type TFriendsArrive = {
   users: IUser[];
 };
 
+export type TStartGame = { type: "START_GAME" };
+
 type TErrorEvent = {
   type: string;
   data: Error;
@@ -127,9 +133,10 @@ type TEvent =
   | TInviteFriends
   | TRecieveInvites
   | TFriendsAcceptInvite
+  | TAcceptInvite
   | TFriendsArrive
   | TSelectGame
-  | { type: "START_GAME" }
+  | TStartGame
   | { type: "JOIN_GAME" }
   | TSetStatus
   | TErrorEvent
@@ -146,15 +153,17 @@ function getMinAndMaxPlayers(gameId: string) {
   return (gameData as any)[gameId];
 }
 
+function getPlayers(context: TContext) {
+  return Object.entries(context.friendsByUserName).filter(
+    ([_, { isInvited, hasAcceptedInvite }]) => isInvited && hasAcceptedInvite
+  );
+}
+
 function getPlayerCount(context: TContext) {
   /* add one to count local user
    * TODO: what if local user is spectating?
    */
-  return (
-    Object.values(context.friendsByUserName).filter(
-      ({ isInvited, hasAcceptedInvite }) => isInvited && hasAcceptedInvite
-    ).length + 1
-  );
+  return getPlayers(context).length + 1;
 }
 
 function areSelectionsValid(context: TContext) {
@@ -174,7 +183,7 @@ function areSelectionsValid(context: TContext) {
 }
 
 export const identifyUser = assign({
-  localUserName: (_, { userName }: TIdentifyUser) => userName,
+  userNameLocal: (_, { userName }: TIdentifyUser) => userName,
 });
 
 const inviteFriends = assign({
@@ -189,6 +198,19 @@ const inviteFriends = assign({
         },
       };
     }, context.friendsByUserName);
+  },
+});
+
+const acceptInvite = assign({
+  invitesRecievedByUserName: (context: TContext, event: TAcceptInvite) => {
+    // TODO: use @xstate/immer?
+    return {
+      ...context.invitesRecievedByUserName,
+      [event.userNameRemote]: {
+        ...context.invitesRecievedByUserName[event.userNameRemote],
+        hasBeenAccepted: true,
+      },
+    };
   },
 });
 
@@ -228,7 +250,7 @@ const ackRecieveInvites = assign({
     return event.payload.reduce((acc: TInvitesRecievedCollection, invite) => {
       return {
         ...acc,
-        [invite.userNameFrom]: {
+        [invite.userNameRemote]: {
           gameId: invite.gameId,
           hasBeenAccepted: false,
         },
@@ -267,7 +289,7 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
     id: "concierge",
     initial: "who",
     context: {
-      localUserName: null,
+      userNameLocal: null,
       friendsByUserName: {},
       selectedGameId: null,
       invitesRecievedByUserName: {},
@@ -345,10 +367,19 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
                 target: "#concierge.respondToInvites",
                 actions: ackRecieveInvites,
               },
-              START_GAME: {
-                target: "#concierge.startGame",
-                cond: "areSelectionsValid",
+              ACCEPT_INVITE: {
+                target: "working",
+                actions: acceptInvite,
               },
+              START_GAME: [
+                {
+                  target: "#concierge.startGame",
+                  cond: "areSelectionsValid",
+                },
+                {
+                  target: ".invalid",
+                },
+              ],
             },
             states: {
               initial: {},
@@ -359,32 +390,28 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
             },
           },
           working: {
-            initial: "validating",
+            initial: "fetching",
             states: {
-              validating: {
-                on: {
-                  "": [
-                    {
-                      target: "fetching",
-                      cond: "areSelectionsValid",
-                    },
-                    {
-                      target: "#concierge.what.waiting.invalid",
-                    },
-                  ],
-                },
-              },
               fetching: {
                 invoke: {
                   id: "invites",
-                  src: (context: TContext, event: TInviteFriends) => {
-                    if (event.type === "INVITE_FRIENDS") {
-                      return req.sendInvites(
-                        event.userNames,
-                        context.selectedGameId
-                      );
-                    } else {
-                      return Promise.resolve({});
+                  src: (
+                    context: TContext,
+                    event: TInviteFriends | TAcceptInvite
+                  ) => {
+                    switch (event.type) {
+                      case "INVITE_FRIENDS":
+                        return req.sendInvites(
+                          event.userNames,
+                          context.selectedGameId
+                        );
+                      case "ACCEPT_INVITE":
+                        return req.acceptInvite(
+                          context.userNameLocal,
+                          event.userNameRemote
+                        );
+                      default:
+                        return Promise.resolve({});
                     }
                   },
                   onDone: "#concierge.what.waiting.ready",
@@ -406,7 +433,25 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
           working: {},
         },
       },
-      startGame: {},
+      startGame: {
+        invoke: {
+          id: "startGame",
+          src: (context: TContext, event: TStartGame) => {
+            return event.type === "START_GAME" &&
+              context.invalidBecause.length === 0
+              ? req.startGame(
+                  getPlayers(context).map(([userName]) => userName),
+                  context.selectedGameId
+                )
+              : Promise.resolve({});
+          },
+          onDone: "#concierge.what.waiting.ready",
+          onError: {
+            target: "#concierge.what.waiting",
+            actions: handleError,
+          },
+        },
+      },
     },
   },
   {

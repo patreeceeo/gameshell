@@ -43,10 +43,19 @@ export async function sendInvites(
 }
 
 export async function startGame(
-  players: Identity[],
+  userNames: string[],
   gameId: string
 ): Promise<Response> {
-  void players;
+  void userNames;
   void gameId;
+  return { success: true };
+}
+
+export async function acceptInvite(
+  userNameLocal: string,
+  userNameRemote: string
+): Promise<Response> {
+  void userNameLocal;
+  void userNameRemote;
   return { success: true };
 }

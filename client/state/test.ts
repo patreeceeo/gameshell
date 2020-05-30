@@ -1,5 +1,6 @@
 import sut, {
   TFriendsAcceptInvite,
+  TAcceptInvite,
   TFriendsArrive,
   TInviteFriends,
   TIdentifyUser,
@@ -7,11 +8,18 @@ import sut, {
   TRecieveInvites,
 } from ".";
 import { interpret } from "xstate";
-import { identifyUser, sendInvites } from "../requests";
+import {
+  identifyUser,
+  sendInvites,
+  startGame,
+  acceptInvite,
+} from "../requests";
 
 jest.mock("../requests", () => ({
   identifyUser: jest.fn(),
   sendInvites: jest.fn(),
+  startGame: jest.fn(),
+  acceptInvite: jest.fn(),
 }));
 
 describe("rootMachine", () => {
@@ -26,14 +34,11 @@ describe("rootMachine", () => {
         userName: "wilma",
       } as TIdentifyUser);
 
-      expect(newState.context.localUserName).toBe("wilma");
+      expect(newState.context.userNameLocal).toBe("wilma");
       expect(newState.matches("who.working")).toBe(true);
     });
 
-    it("lets the server know who she is", () => {
-      ((identifyUser as any) as jest.SpyInstance).mockImplementation(() =>
-        Promise.resolve({})
-      );
+    it("lets the server know who the local user is", () => {
       const service = interpret(sut);
       service.start();
       service.send({
@@ -44,6 +49,63 @@ describe("rootMachine", () => {
       expect(identifyUser).toHaveBeenCalledTimes(1);
       expect(identifyUser).toHaveBeenCalledWith({ userName: "wilma" });
     });
+
+    // TODO prevent duplicate usernames
+    // it("does not allow duplicate user names via client-side validation", () => {
+    //   const sutWithContext = sut.withContext({
+    //     ...sut.context,
+    //     friendsByUserName: {
+    //       Rick: {
+    //         isInvited: true,
+    //         hasAcceptedInvite: false,
+    //       },
+    //     },
+    //   });
+
+    //   const service = interpret(sutWithContext);
+    //   service.start();
+
+    //   service.send({
+    //     type: "IDENTIFY_USER",
+    //     userName: "Rick",
+    //   } as TIdentifyUser);
+
+    //   expect(identifyUser).toHaveBeenCalledTimes(0);
+    //   expect(sutWithContext.context.invalidBecause).toBe(
+    //     expect.arrayContaining([
+    //       {
+    //         type: "duplicateUserName",
+    //         userName: "Rick",
+    //       },
+    //     ])
+    //   );
+    // });
+
+    // it("does not allow duplicate user names via server-side validation", () => {
+    //   ((identifyUser as any) as jest.SpyInstance).mockImplementation(() =>
+    //     Promise.reject({
+    //       reasonType: "duplicateUserName",
+    //     })
+    //   );
+
+    //   const service = interpret(sut);
+    //   service.start();
+
+    //   service.send({
+    //     type: "IDENTIFY_USER",
+    //     userName: "Rick",
+    //   } as TIdentifyUser);
+
+    //   expect(identifyUser).toHaveBeenCalledTimes(0);
+    //   expect(sut.context.invalidBecause).toBe(
+    //     expect.arrayContaining([
+    //       {
+    //         type: "duplicateUserName",
+    //         userName: "Rick",
+    //       },
+    //     ])
+    //   );
+    // });
 
     it.skip("handles errors", () => {
       // TODO
@@ -167,6 +229,7 @@ describe("rootMachine", () => {
         } as TInviteFriends);
 
         expect(sendInvites).toHaveBeenCalledTimes(1);
+        // TODO include who's sending it
         expect(sendInvites).toHaveBeenCalledWith(["JoJo", "Elsa"], "boggle");
         done();
       });
@@ -175,6 +238,7 @@ describe("rootMachine", () => {
     it("keeps track of what friends have accepted", () => {
       const sutWithContext = sut.withContext({
         ...sut.context,
+        userNameLocal: "Squanchy",
         friendsByUserName: {
           morty: {
             isInvited: true,
@@ -215,13 +279,13 @@ describe("rootMachine", () => {
       let state = sut.transition("what", {
         type: "RECIEVE_INVITES",
         payload: [
-          { userNameFrom: "JoJo" },
+          { userNameRemote: "JoJo" },
           {
-            userNameFrom: "Elsa",
+            userNameRemote: "Elsa",
             gameId: "hideseek",
           },
           {
-            userNameFrom: "JoJo",
+            userNameRemote: "JoJo",
             gameId: "militia",
           },
         ],
@@ -240,29 +304,71 @@ describe("rootMachine", () => {
       expect(state.matches("respondToInvites")).toBe(true);
     });
 
-    it("validates", () => {
-      let state = sut.transition("what", {
-        type: "INVITE_FRIENDS",
-        userNames: ["morty"],
-      } as TInviteFriends);
+    it("allows the local user to accept those invites & updates the server", () => {
+      const sutWithContext = sut.withContext({
+        ...sut.context,
+        invitesRecievedByUserName: {
+          Elsa: {
+            gameId: "hideseek",
+            hasBeenAccepted: false,
+            userNameRemote: "Elsa",
+          },
+          JoJo: {
+            gameId: "militia",
+            hasBeenAccepted: false,
+            userNameRemote: "JoJo",
+          },
+        },
+      });
 
-      // TODO Skip over the invoked service for now
-      state.value = { what: { waiting: "ready" } };
+      const service = interpret(sutWithContext);
+      service.start();
 
-      state = sut.transition(state, {
-        type: "FRIENDS_ACCEPT_INVITE",
-        userNames: ["morty"],
-      } as TFriendsAcceptInvite);
+      service.send({
+        type: "IDENTIFY_USER",
+        userName: "Morty",
+      } as TIdentifyUser);
 
-      // TODO Skip over the invoked service for now
-      state.value = { what: { waiting: "ready" } };
+      service.send("FINISH_WORKING");
 
-      state = sut.transition(state, {
-        type: "SELECT_GAME",
-        gameId: "min3test",
-      } as TSelectGame);
+      service.send({
+        type: "ACCEPT_INVITE",
+        userNameRemote: "Elsa",
+      } as TAcceptInvite);
 
-      expect(state.context.invalidBecause).toEqual(
+      expect(
+        service.state.context.invitesRecievedByUserName.Elsa.hasBeenAccepted
+      ).toBe(true);
+      expect(acceptInvite).toHaveBeenCalledTimes(1);
+      expect(acceptInvite).toHaveBeenCalledWith("Morty", "Elsa");
+    });
+
+    it("does not allow the user to start the game from an invalid state", () => {
+      const sutWithContext = sut.withContext({
+        ...sut.context,
+        selectedGameId: "min3test",
+        friendsByUserName: {
+          Tina: {
+            isInvited: true,
+            hasAcceptedInvite: true,
+          },
+        },
+      });
+
+      const service = interpret(sutWithContext);
+
+      service.start();
+
+      service.send({
+        type: "IDENTIFY_USER",
+        userName: "wilma",
+      } as TIdentifyUser);
+
+      service.send({ type: "FINISH_WORKING" });
+
+      service.send({ type: "START_GAME" });
+
+      expect(service.state.context.invalidBecause).toEqual(
         expect.arrayContaining([
           {
             type: "numberOfPlayers",
@@ -271,28 +377,39 @@ describe("rootMachine", () => {
           },
         ])
       );
+      expect(startGame).toHaveBeenCalledTimes(0);
     });
 
-    it("does not allow the user to start the game from an invalid state", () => {
-      let state = sut.transition("what.waiting.ready", {
-        type: "START_GAME",
-      });
-
-      expect(state.matches("startGame")).toBe(false);
-    });
-
-    it("allows the user to start the game from a valid state", () => {
-      const sutTriviallyValid = sut.withContext({
+    it("allows the user to start the game from a valid state & updates server", () => {
+      const sutWithContext = sut.withContext({
         ...sut.context,
-        selectedGameId: "unknown",
-      });
-      let state = sutTriviallyValid.transition("what.waiting.ready", {
-        type: "START_GAME",
+        selectedGameId: "boggle",
+        friendsByUserName: {
+          JoJo: {
+            isInvited: true,
+            hasAcceptedInvite: true,
+          },
+          Elsa: {
+            isInvited: true,
+            hasAcceptedInvite: true,
+          },
+        },
       });
 
-      expect(state.matches("startGame")).toBe(true);
+      const service = interpret(sutWithContext);
+      service.start();
+
+      service.send({
+        type: "IDENTIFY_USER",
+        userName: "wilma",
+      } as TIdentifyUser);
+
+      service.send({ type: "FINISH_WORKING" });
+
+      service.send({ type: "START_GAME" });
+
+      expect(startGame).toHaveBeenCalledTimes(1);
+      expect(startGame).toHaveBeenCalledWith(["JoJo", "Elsa"], "boggle");
     });
-
-    // TODO let server know about starting game
   });
 });
