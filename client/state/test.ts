@@ -15,12 +15,7 @@ import {
   acceptInvite,
 } from "../requests";
 
-jest.mock("../requests", () => ({
-  identifyUser: jest.fn(),
-  sendInvites: jest.fn(),
-  startGame: jest.fn(),
-  acceptInvite: jest.fn(),
-}));
+jest.mock("../requests");
 
 describe("concierge machine", () => {
   beforeEach(jest.resetAllMocks);
@@ -212,10 +207,6 @@ describe("concierge machine", () => {
     });
 
     it("lets the server know who is invited", (done) => {
-      // TODO: allow jest to auto-mock
-      ((sendInvites as any) as jest.SpyInstance).mockImplementation(() =>
-        Promise.resolve({})
-      );
       const service = interpret(
         sut
       ); /*.onTransition((state, event) => {
@@ -238,7 +229,6 @@ describe("concierge machine", () => {
         } as TInviteFriends);
 
         expect(sendInvites).toHaveBeenCalledTimes(1);
-        // TODO include who's sending it
         expect(sendInvites).toHaveBeenCalledWith(["JoJo", "Elsa"], "boggle");
         done();
       });
@@ -284,7 +274,6 @@ describe("concierge machine", () => {
     });
 
     it("allows user to recieve invites", () => {
-      // TODO: can send multiple events to transition?
       let state = sut.transition("what", {
         type: "RECIEVE_INVITES",
         payload: [

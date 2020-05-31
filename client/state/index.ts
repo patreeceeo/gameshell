@@ -32,7 +32,6 @@ type TWaitThenWorkStateNodeConfig = StateNodeConfig<
   TEvent
 >;
 
-/* MAYBE TODO: a better name than 'friend'? */
 interface TFriend {
   isInvited: boolean;
   hasAcceptedInvite: boolean;
@@ -175,9 +174,6 @@ function areSelectionsValid(context: TContext) {
       0,
       Infinity,
     ];
-    /* add one to count local user
-     * TODO: what if local user is spectating?
-     */
     const playerCount = getPlayerCount(context);
     return playerCount >= min && playerCount <= max;
   } else {
