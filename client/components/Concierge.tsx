@@ -3,6 +3,7 @@ import * as React from "react";
 // import { IUser } from "../../server/state";
 import { useMachine } from "@xstate/react";
 import Machine from "../state";
+import WhoForm from "./WhoForm";
 
 // const socket = socketIO();
 
@@ -26,25 +27,27 @@ const Concierge: React.ComponentType<{}> = () => {
   return (
     <div>
       <h1>Who goes there?</h1>
-      {state.matches("who") && (
-        <form onSubmit={handleSubmit}>
-          <input type="text" name="userName" />
-        </form>
-      )}
+      {state.matches("who") && <WhoForm onSubmit={handleSubmit} />}
       <ul>
-        {!state.matches("who") && <li>{state.context.userNameLocal}</li>}
+        {state.context.userNameLocal && (
+          <li>
+            {state.context.userNameLocal} ({"<=="} that's you!)
+          </li>
+        )}
         {listFriends().map(([userName]) => (
           <li key={userName}>{userName}</li>
         ))}
       </ul>
       <h1>What are we doing here?</h1>
+      <small>
+        <i>gametheory</i> v0.1e-42, copyleft 2020{" "}
+        <a href="https://patrickcanfield.com">Patrick Canfield</a>
+      </small>
     </div>
   );
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const data = new FormData(e.target as HTMLFormElement);
-    send({ type: "IDENTIFY_USER", userName: data.get("userName") as string });
+  function handleSubmit({ userName }: { userName: string }) {
+    send({ type: "IDENTIFY_USER", userName });
   }
 
   function listFriends() {
