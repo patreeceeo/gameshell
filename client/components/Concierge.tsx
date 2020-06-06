@@ -4,6 +4,7 @@ import * as React from "react";
 import { useMachine } from "@xstate/react";
 import Machine from "../state";
 import WhoForm from "./WhoForm";
+import WhatForm from "./WhatForm";
 
 // const socket = socketIO();
 
@@ -27,7 +28,7 @@ const Concierge: React.ComponentType<{}> = () => {
   return (
     <div>
       <h1>Who goes there?</h1>
-      {state.matches("who") && <WhoForm onSubmit={handleSubmit} />}
+      {state.matches("who") && <WhoForm onSubmit={handleSubmitWho} />}
       <ul>
         {state.context.userNameLocal && (
           <li>
@@ -39,6 +40,9 @@ const Concierge: React.ComponentType<{}> = () => {
         ))}
       </ul>
       <h1>What are we doing here?</h1>
+      {state.matches("what") && (
+        <WhatForm friendsByUserName={state.context.friendsByUserName} />
+      )}
       <small>
         <i>gametheory</i> v0.1e-42, copyleft 2020{" "}
         <a href="https://patrickcanfield.com">Patrick Canfield</a>
@@ -46,7 +50,7 @@ const Concierge: React.ComponentType<{}> = () => {
     </div>
   );
 
-  function handleSubmit({ userName }: { userName: string }) {
+  function handleSubmitWho({ userName }: { userName: string }) {
     send({ type: "IDENTIFY_USER", userName });
   }
 

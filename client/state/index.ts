@@ -37,7 +37,7 @@ interface TFriend {
   hasAcceptedInvite: boolean;
 }
 
-interface TFriendCollection {
+export interface TFriendCollection {
   [userName: string]: TFriend;
 }
 
