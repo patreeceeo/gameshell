@@ -53,7 +53,6 @@ export const InviteForm: React.ComponentType<TProps> = (props) => {
   function handleChange(userName: string) {
     setFriendsByUserName(
       produce(friendsByUserName, (draft: TFriendCollection) => {
-        console.log(userName, draft[userName].isInvited);
         draft[userName].isInvited = !draft[userName].isInvited;
       })
     );
@@ -78,7 +77,9 @@ type TRowData = TFriendCollection[string] & {
 };
 
 const Row: React.FunctionComponent<TRowData> = (props) => {
-  const label = `invite ${props.userName}`;
+  const label = props.isInvited
+    ? `cancel invite to ${props.userName}`
+    : `invite ${props.userName}`;
   return (
     <tr>
       <td>
@@ -92,7 +93,15 @@ const Row: React.FunctionComponent<TRowData> = (props) => {
           {props.userName}
         </label>
       </td>
-      <td>{props.systemHasAckInvite && "invited!"}</td>
+      <td aria-label={`${props.userName}'s invitation status`}>
+        {props.hasAcceptedInvite ? (
+          <span aria-label="accepted">accepted!</span>
+        ) : props.systemHasAckInvite ? (
+          <span aria-label="invited">invited!</span>
+        ) : (
+          <span aria-label="not invited" />
+        )}
+      </td>
     </tr>
   );
 };

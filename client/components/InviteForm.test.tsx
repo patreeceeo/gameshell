@@ -59,7 +59,7 @@ describe("InviteForm when app is in initial state", () => {
   it("has a bulk invite 'button'", async () => {
     fireEvent.click(
       await screen.findByLabelText("invite everyone", {
-        selector: "input",
+        selector: interactiveEls,
       })
     );
     fireEvent.click(
@@ -70,5 +70,62 @@ describe("InviteForm when app is in initial state", () => {
     expect(spySubmit).toHaveBeenCalledTimes(1);
     expect(spySubmit).toHaveBeenCalledWith(["adam", "steve"]);
   });
+
+  it("indicates the status of each invitation", async () => {
+    await screen.findByLabelText("not invited", {
+      selector: '[aria-label="adam\'s invitation status"] > *',
+    });
+  });
+
+  it("invite button becomes cancel button when clicked", async () => {
+    const button = await screen.findByLabelText("invite steve", {
+      selector: interactiveEls,
+    });
+    fireEvent.click(button);
+    expect(button.getAttribute("aria-label")).toBe("cancel invite to steve");
+  });
 });
 
+describe("InviteForm when invites have been sent", () => {
+  const friendsByUserName = {
+    adam: {
+      isInvited: true,
+      hasAcceptedInvite: false,
+    },
+    steve: {
+      isInvited: false,
+      hasAcceptedInvite: false,
+    },
+  };
+  beforeEach(() => {
+    render(<InviteForm friendsByUserName={friendsByUserName} />);
+  });
+
+  it("indicates which users have been invited", async () => {
+    await screen.findByLabelText("invited", {
+      selector: '[aria-label="adam\'s invitation status"] > *',
+    });
+  });
+});
+
+describe("InviteForm when invites have been accepted", () => {
+  const friendsByUserName = {
+    adam: {
+      isInvited: true,
+      hasAcceptedInvite: true,
+    },
+    steve: {
+      isInvited: false,
+      hasAcceptedInvite: false,
+    },
+  };
+  beforeEach(() => {
+    render(<InviteForm friendsByUserName={friendsByUserName} />);
+  });
+
+  it("indicates which users have accepted", async () => {
+    await screen.findByLabelText("accepted", {
+      selector: '[aria-label="adam\'s invitation status"] > *',
+    });
+  });
+});
