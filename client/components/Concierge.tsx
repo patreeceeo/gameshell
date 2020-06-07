@@ -4,8 +4,7 @@ import * as React from "react";
 import { useMachine } from "@xstate/react";
 import Machine from "../state";
 import WhoForm from "./WhoForm";
-import { InviteForm } from ".";
-import { SelectGameForm } from "./SelectGameForm";
+import { InviteForm, SelectGameForm, AcceptInviteForm } from ".";
 
 // const socket = socketIO();
 
@@ -33,20 +32,7 @@ const Concierge: React.ComponentType<{}> = () => {
   //   socket.emit("arrive", { userName: data.get("userName") });
   // }
 
-  const [state, send] = useMachine(Machine, {
-    context: {
-      friendsByUserName: {
-        tom: {
-          isInvited: false,
-          hasAcceptedInvite: false,
-        },
-        jerry: {
-          isInvited: false,
-          hasAcceptedInvite: false,
-        },
-      },
-    },
-  });
+  const [state, send] = useMachine(Machine);
 
   return (
     <main>
@@ -67,6 +53,11 @@ const Concierge: React.ComponentType<{}> = () => {
       {state.matches("what") && (
         <section>
           <h1>What are we doing here?</h1>
+          <AcceptInviteForm
+            games={gamesEnabled}
+            invitesRecievedByUserName={state.context.invitesRecievedByUserName}
+            onAccept={handleAcceptInvite}
+          />
           <h2>Choose a game</h2>
           <SelectGameForm
             games={gamesEnabled}
@@ -99,6 +90,10 @@ const Concierge: React.ComponentType<{}> = () => {
 
   function handleSubmitInvites(userNames: string[]) {
     send({ type: "INVITE_FRIENDS", userNames });
+  }
+
+  function handleAcceptInvite(userNameRemote: string) {
+    send({ type: "ACCEPT_INVITE", userNameRemote });
   }
 
   function listFriends() {

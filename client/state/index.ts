@@ -41,6 +41,12 @@ export interface TFriendCollection {
   [userName: string]: TFriend;
 }
 
+export interface TGameCollection {
+  [gameId: string]: {
+    displayName: string;
+  };
+}
+
 interface TInvalidReason {
   type: string;
   [key: string]: any;
@@ -52,7 +58,7 @@ interface TInviteRecieved {
   gameId?: string;
 }
 
-interface TInvitesRecievedCollection {
+export interface TInvitesRecievedCollection {
   [userName: string]: TInviteRecieved;
 }
 

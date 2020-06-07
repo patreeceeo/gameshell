@@ -1,10 +1,5 @@
 import * as React from "react";
-
-interface TGameCollection {
-  [gameId: string]: {
-    displayName: string;
-  };
-}
+import { TGameCollection } from "../state";
 
 interface TProps {
   onChange: (selectedGameId: string) => void;
