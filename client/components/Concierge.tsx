@@ -54,7 +54,10 @@ const Concierge: React.ComponentType<{}> = () => {
       </ul>
       <h1>What are we doing here?</h1>
       {state.matches("what") && (
-        <InviteForm friendsByUserName={state.context.friendsByUserName} />
+        <InviteForm
+          friendsByUserName={state.context.friendsByUserName}
+          onSubmit={handleSubmitInvites}
+        />
       )}
       <small>
         <i>gametheory</i> v0.1e-42, copyleft 2020{" "}
@@ -65,6 +68,10 @@ const Concierge: React.ComponentType<{}> = () => {
 
   function handleSubmitWho({ userName }: { userName: string }) {
     send({ type: "IDENTIFY_USER", userName });
+  }
+
+  function handleSubmitInvites(userNames: string[]) {
+    send({ type: "INVITE_FRIENDS", userNames });
   }
 
   function listFriends() {

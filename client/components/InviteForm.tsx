@@ -1,7 +1,7 @@
 import * as React from "react";
 import { TFriendCollection } from "../state";
-import { partial } from "../../utils";
 import produce from "immer";
+import { partial } from "../../utils";
 
 type TFormData = string[];
 
@@ -17,20 +17,21 @@ export const InviteForm: React.ComponentType<TProps> = (props) => {
 
   return (
     <form onSubmit={handleSubmit}>
-      {Object.keys(props.friendsByUserName).map((userName) => {
-        const label = `invite ${userName}`;
-        return (
-          <label key={userName} aria-label={label}>
-            <input
-              type="checkbox"
-              name={userName}
-              checked={friendsByUserName[userName].isInvited}
-              onChange={partial(handleChange, userName)}
-            />
-            {userName}
-          </label>
-        );
-      })}
+      <table>
+        <tbody>
+          {Object.entries(friendsByUserName).map(([userName, info]) => {
+            return (
+              <Row
+                key={userName}
+                userName={userName}
+                {...info}
+                onChange={partial(handleChange, userName)}
+                systemHasAckInvite={props.friendsByUserName[userName].isInvited}
+              />
+            );
+          })}
+        </tbody>
+      </table>
       <input
         type="button"
         aria-label="invite everyone"
@@ -52,6 +53,7 @@ export const InviteForm: React.ComponentType<TProps> = (props) => {
   function handleChange(userName: string) {
     setFriendsByUserName(
       produce(friendsByUserName, (draft: TFriendCollection) => {
+        console.log(userName, draft[userName].isInvited);
         draft[userName].isInvited = !draft[userName].isInvited;
       })
     );
@@ -67,6 +69,32 @@ export const InviteForm: React.ComponentType<TProps> = (props) => {
         .map(([userName]) => userName)
     );
   }
+};
+
+type TRowData = TFriendCollection[string] & {
+  onChange: any;
+  userName: string;
+  systemHasAckInvite: boolean;
+};
+
+const Row: React.FunctionComponent<TRowData> = (props) => {
+  const label = `invite ${props.userName}`;
+  return (
+    <tr>
+      <td>
+        <label aria-label={label}>
+          <input
+            type="checkbox"
+            name={props.userName}
+            checked={props.isInvited}
+            onChange={props.onChange}
+          />
+          {props.userName}
+        </label>
+      </td>
+      <td>{props.systemHasAckInvite && "invited!"}</td>
+    </tr>
+  );
 };
 
 InviteForm.defaultProps = {
