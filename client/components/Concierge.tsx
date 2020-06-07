@@ -4,7 +4,7 @@ import * as React from "react";
 import { useMachine } from "@xstate/react";
 import Machine from "../state";
 import WhoForm from "./WhoForm";
-import WhatForm from "./WhatForm";
+import { InviteForm } from ".";
 
 // const socket = socketIO();
 
@@ -23,7 +23,20 @@ const Concierge: React.ComponentType<{}> = () => {
   //   socket.emit("arrive", { userName: data.get("userName") });
   // }
 
-  const [state, send] = useMachine(Machine);
+  const [state, send] = useMachine(Machine, {
+    context: {
+      friendsByUserName: {
+        tom: {
+          isInvited: false,
+          hasAcceptedInvite: false,
+        },
+        jerry: {
+          isInvited: false,
+          hasAcceptedInvite: false,
+        },
+      },
+    },
+  });
 
   return (
     <div>
@@ -41,7 +54,7 @@ const Concierge: React.ComponentType<{}> = () => {
       </ul>
       <h1>What are we doing here?</h1>
       {state.matches("what") && (
-        <WhatForm friendsByUserName={state.context.friendsByUserName} />
+        <InviteForm friendsByUserName={state.context.friendsByUserName} />
       )}
       <small>
         <i>gametheory</i> v0.1e-42, copyleft 2020{" "}
