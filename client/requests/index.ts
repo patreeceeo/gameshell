@@ -1,4 +1,6 @@
-// import { Identity } from "../../server/state";
+import * as socketIO from "socket.io-client";
+import { IUser } from "../../server/state";
+import { TInviteRecieved } from "../state";
 
 export class Identity {
   constructor(readonly userName: string) {}
@@ -7,6 +9,8 @@ export class Identity {
 class Response {
   success: boolean;
 }
+
+const socket = socketIO();
 
 export class UserStatus {
   static ready(value: boolean) {
@@ -20,8 +24,22 @@ export class UserStatus {
 }
 
 export async function identifyUser({ userName }: Identity): Promise<Response> {
-  void userName;
+  socket.emit("identifyUser", userName);
   return { success: true };
+}
+
+export function onFriendsArrive(callback: (users: IUser[]) => void) {
+  socket.on("friendsArrive", callback);
+}
+
+export function onFriendsDepart(callback: (userNames: string[]) => void) {
+  socket.on("friendsDepart", callback);
+}
+
+export function onRecieveInvites(
+  callback: (invites: TInviteRecieved[]) => void
+) {
+  socket.on("recieveInvites", callback);
 }
 
 export async function setStatus(
@@ -37,8 +55,7 @@ export async function sendInvites(
   userNames: string[],
   gameId?: string
 ): Promise<Response> {
-  void userNames;
-  void gameId;
+  socket.emit("sendInvites", userNames, gameId);
   return { success: true };
 }
 

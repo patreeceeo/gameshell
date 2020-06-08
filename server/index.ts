@@ -1,18 +1,8 @@
 import { Application } from "express";
 import { createServer } from "http";
 import * as socketIO from "socket.io";
-import {
-  gameIsInProgress,
-  addPlayer,
-  addSpectator,
-  listSpectators,
-  listPlayers,
-} from "./state";
 import { partial } from "../utils";
-
-interface IMessageArrive {
-  userName: string;
-}
+import { addPlayer, listPlayers } from "./state";
 
 let count = 0;
 
@@ -32,30 +22,50 @@ export function startMainLoop(app: Application): void {
 function handleConnection(socket: socketIO.Socket) {
   count++;
   console.log("there are now", count, "clients");
-  socket.on("disconnect", handleDisconnection);
-  socket.on("arrive", partial(handleArrive, socket));
+  socket.on("disconnect", partial(handleDisconnection, socket));
+  socket.on("identifyUser", partial(handleIdentifyUser, socket));
+  socket.on("sendInvites", partial(handleSendInvites, socket));
 }
 
-function emitToAll(socket: socketIO.Socket, message: string, data: any) {
-  socket.emit(message, data);
-  socket.broadcast.emit(message, data);
+const socketsByUserName: { [userName: string]: socketIO.Socket } = {};
+const userNamesBySocketId: { [socketId: string]: string } = {};
+
+async function handleIdentifyUser(socket: socketIO.Socket, userName: string) {
+  await addPlayer(userName);
+  socketsByUserName[userName] = socket;
+  userNamesBySocketId[socket.id] = userName;
+
+  const allPlayers = await listPlayers();
+
+  Object.entries(socketsByUserName).forEach(([recievingUserName, socket]) => {
+    const otherPlayers = allPlayers.filter(
+      ({ userName }) => userName !== recievingUserName
+    );
+    socket.emit("friendsArrive", otherPlayers);
+  });
 }
 
-async function handleArrive(socket: socketIO.Socket, message: IMessageArrive) {
-  if (await gameIsInProgress()) {
-    await addSpectator(message.userName);
-    emitToAll(socket, "addSpectator", {
-      spectators: await listSpectators(),
-    });
-  } else {
-    await addPlayer(message.userName);
-    emitToAll(socket, "addPlayer", {
-      players: await listPlayers(),
-    });
-  }
+async function handleSendInvites(
+  socket: socketIO.Socket,
+  userNames: string,
+  gameId: string
+) {
+  const invite = {
+    userNameRemote: userNamesBySocketId[socket.id],
+    gameId,
+  };
+  Object.entries(socketsByUserName).forEach(([recievingUserName, socket]) => {
+    if (userNames.includes(recievingUserName)) {
+      socket.emit("recieveInvites", [invite]);
+    }
+  });
 }
 
-function handleDisconnection() {
+function handleDisconnection(socket: socketIO.Socket) {
   count--;
   console.log("disconnected!");
+  const userNameDeparted = userNamesBySocketId[socket.id];
+  delete userNamesBySocketId[socket.id];
+  delete socketsByUserName[userNameDeparted];
+  socket.broadcast.emit("friendsDepart", [userNameDeparted]);
 }

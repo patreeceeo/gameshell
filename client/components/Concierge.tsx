@@ -1,12 +1,14 @@
 import * as React from "react";
-// import * as socketIO from "socket.io-client";
-// import { IUser } from "../../server/state";
 import { useMachine } from "@xstate/react";
-import Machine from "../state";
+import Machine, { TInviteRecieved } from "../state";
 import WhoForm from "./WhoForm";
 import { InviteForm, SelectGameForm, AcceptInviteForm } from ".";
-
-// const socket = socketIO();
+import {
+  onFriendsArrive,
+  onFriendsDepart,
+  onRecieveInvites,
+} from "../requests";
+import { IUser } from "../../server/state";
 
 const gamesEnabled = {
   snake: {
@@ -18,21 +20,21 @@ const gamesEnabled = {
 };
 
 const Concierge: React.ComponentType<{}> = () => {
-  // const [players, setPlayers] = React.useState<IUser[]>([]);
-
-  // React.useEffect(() => {
-  //   socket.on("addPlayer", ({ players }: { players: any[] }) =>
-  //     setPlayers(players)
-  //   );
-  // }, [socket]);
-
-  // function handleSubmit(e: React.FormEvent) {
-  //   e.preventDefault();
-  //   const data = new FormData(e.target as HTMLFormElement);
-  //   socket.emit("arrive", { userName: data.get("userName") });
-  // }
-
   const [state, send] = useMachine(Machine);
+  React.useEffect(() => {
+    onFriendsArrive((users: IUser[]) => {
+      console.log("FRIENDS_ARRIVE", users);
+      send({ type: "FRIENDS_ARRIVE", users });
+    });
+    onFriendsDepart((userNames: string[]) => {
+      console.log("FRIENDS_DEPART", userNames);
+      send({ type: "FRIENDS_DEPART", userNames });
+    });
+    onRecieveInvites((invites: TInviteRecieved[]) => {
+      console.log("RECIEVE_INVITES", invites);
+      send({ type: "RECIEVE_INVITES", payload: invites });
+    });
+  });
 
   return (
     <main>
@@ -50,7 +52,7 @@ const Concierge: React.ComponentType<{}> = () => {
           ))}
         </ul>
       </section>
-      {state.matches("what") && (
+      {(state.matches("what") || state.matches("respondToInvites.waiting")) && (
         <section>
           <h1>What are we doing here?</h1>
           <AcceptInviteForm
@@ -71,6 +73,7 @@ const Concierge: React.ComponentType<{}> = () => {
           />
         </section>
       )}
+      Current state: {JSON.stringify(state.value)}
       <footer>
         <small>
           <i>gametheory</i> v0.1e-42, copyleft 2020{" "}

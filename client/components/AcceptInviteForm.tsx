@@ -18,7 +18,9 @@ export const AcceptInviteForm: React.ComponentType<TProps> = (props) => {
         ([userNameRemote, { gameId }]) => (
           <li key={userNameRemote} aria-label={`invite from ${userNameRemote}`}>
             {gameId &&
-              `${userNameRemote} wants to play ${props.games[gameId].displayName}`}
+              `${userNameRemote} has invited you to play ${
+                props.games[gameId].displayName || "TBD"
+              }!`}
             <button
               aria-label="accept invite"
               onClick={handleAccept(userNameRemote)}
@@ -31,4 +33,3 @@ export const AcceptInviteForm: React.ComponentType<TProps> = (props) => {
     </ul>
   );
 };
-

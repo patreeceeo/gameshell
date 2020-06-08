@@ -1,5 +1,5 @@
 import * as React from "react";
-import { TFriendCollection } from "../state";
+import { TFriendCollection, FriendCollection } from "../state";
 import produce from "immer";
 import { partial } from "../../utils";
 
@@ -15,6 +15,16 @@ export const InviteForm: React.ComponentType<TProps> = (props) => {
     props.friendsByUserName
   );
 
+  React.useEffect(() => {
+    console.log("updating friends", props.friendsByUserName);
+    setFriendsByUserName(
+      FriendCollection.resolveConflicts(
+        friendsByUserName,
+        props.friendsByUserName
+      )
+    );
+  });
+
   return (
     <form onSubmit={handleSubmit}>
       <table>
@@ -26,7 +36,9 @@ export const InviteForm: React.ComponentType<TProps> = (props) => {
                 userName={userName}
                 {...info}
                 onChange={partial(handleChange, userName)}
-                systemHasAckInvite={props.friendsByUserName[userName].isInvited}
+                systemHasAckInvite={
+                  props.friendsByUserName[userName]?.isInvited
+                }
               />
             );
           })}

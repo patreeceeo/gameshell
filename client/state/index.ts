@@ -5,6 +5,7 @@ import { Machine, StateNodeConfig, assign } from "xstate";
 // also find a central place for these types
 import * as req from "../requests";
 import { IUser } from "../../server/state";
+import produce from "immer";
 
 interface TWaitThenWorkStates {
   states: {
@@ -41,6 +42,22 @@ export interface TFriendCollection {
   [userName: string]: TFriend;
 }
 
+// TODO combine with interface?
+export class FriendCollection {
+  static resolveConflicts(local: TFriendCollection, remote: TFriendCollection) {
+    return produce(local, (draft) => {
+      Object.keys(remote).forEach((userName) => {
+        draft[userName] = draft[userName] || remote[userName];
+      });
+      Object.keys(local).forEach((userName) => {
+        if (!remote[userName]) {
+          delete draft[userName];
+        }
+      });
+    });
+  }
+}
+
 export interface TGameCollection {
   [gameId: string]: {
     displayName: string;
@@ -52,9 +69,9 @@ interface TInvalidReason {
   [key: string]: any;
 }
 
-interface TInviteRecieved {
+export interface TInviteRecieved {
   userNameRemote: string;
-  hasBeenAccepted: boolean;
+  hasBeenAccepted?: boolean;
   gameId?: string;
 }
 
@@ -121,6 +138,11 @@ export type TFriendsArrive = {
   users: IUser[];
 };
 
+export type TFriendsDepart = {
+  type: "FRIENDS_DEPART";
+  userNames: string[];
+};
+
 export type TStartGame = { type: "START_GAME" };
 
 type TErrorEvent = {
@@ -143,6 +165,7 @@ type TEvent =
   | TFriendsAcceptInvite
   | TAcceptInvite
   | TFriendsArrive
+  | TFriendsDepart
   | TSelectGame
   | TStartGame
   | { type: "JOIN_GAME" }
@@ -212,14 +235,12 @@ const inviteFriends = assign({
 
 const acceptInvite = assign({
   invitesRecievedByUserName: (context: TContext, event: TAcceptInvite) => {
-    // TODO: use @xstate/immer?
-    return {
-      ...context.invitesRecievedByUserName,
-      [event.userNameRemote]: {
-        ...context.invitesRecievedByUserName[event.userNameRemote],
+    return produce(context.invitesRecievedByUserName, (draft) => {
+      draft[event.userNameRemote] = {
+        ...draft[event.userNameRemote],
         hasBeenAccepted: true,
-      },
-    };
+      };
+    });
   },
 });
 
@@ -240,15 +261,26 @@ const ackAcceptedInvites = assign({
 
 const ackFriendsArrive = assign({
   friendsByUserName: (context: TContext, event: TFriendsArrive) => {
-    // TODO: watch out for memory leaks!
-    return event.users.reduce((acc: TFriendCollection, { userName }) => {
-      return {
-        ...acc,
-        [userName]: {
+    return produce(context.friendsByUserName, (draft) => {
+      event.users.forEach(({ userName }) => {
+        draft[userName] = {
           isInvited: false,
           hasAcceptedInvite: false,
-        },
+        };
+      });
+    });
+  },
+});
+
+const ackFriendsDepart = assign({
+  friendsByUserName: (context: TContext, event: TFriendsDepart) => {
+    // TODO: watch out for memory leaks!
+    return event.userNames.reduce((acc: TFriendCollection, userName) => {
+      const copy = {
+        ...acc,
       };
+      delete copy[userName];
+      return copy;
     }, context.friendsByUserName);
   },
 });
@@ -335,6 +367,18 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
                   actions: setInvalidDuplicateUserName,
                 },
               ],
+              FRIENDS_ARRIVE: {
+                target: "waiting",
+                actions: ackFriendsArrive,
+              },
+              FRIENDS_DEPART: {
+                target: "waiting",
+                actions: ackFriendsDepart,
+              },
+              RECIEVE_INVITES: {
+                target: "waiting",
+                actions: ackRecieveInvites,
+              },
             },
             initial: "initial",
             states: {
@@ -388,6 +432,10 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
               FRIENDS_ARRIVE: {
                 target: "working",
                 actions: ackFriendsArrive,
+              },
+              FRIENDS_DEPART: {
+                target: "working",
+                actions: ackFriendsDepart,
               },
               INVITE_FRIENDS: {
                 target: "working",
