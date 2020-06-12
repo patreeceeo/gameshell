@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "noImplicitThis": true,
     "outDir": "./dist/",
     "sourceMap": true,
     "noImplicitAny": true,
@@ -7,6 +8,8 @@
     "target": "es5",
     "jsx": "react",
     "allowJs": true,
+    "importHelpers": true,
+    "downlevelIteration": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true
   }
