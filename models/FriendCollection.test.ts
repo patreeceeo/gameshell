@@ -50,6 +50,27 @@ describe("FriendCollection#batchUpdate", () => {
   });
 });
 
+describe("FriendCollection#batchDelete", () => {
+  it("returns a new collection with the entries identified by 1st arg removed", () => {
+    const calvin = {
+      isInvited: true,
+      hasAcceptedInvite: false,
+    };
+    const hobbes = {
+      isInvited: true,
+      hasAcceptedInvite: false,
+    };
+    const sut = FriendCollection([
+      { userName: "calvin", ...calvin },
+      { userName: "hobbes", ...hobbes },
+    ]);
+
+    const newSut = sut.batchDelete(["calvin"]);
+
+    expect(newSut.get("calvin")).not.toBeDefined();
+  });
+});
+
 describe("FriendCollection#map", () => {
   it("iterates in insertion order", () => {
     const calvin = {

@@ -23,6 +23,7 @@ export interface IFriendCollection {
   has(userName: string): boolean;
 
   batchUpdate(userNames: string[], it: TIterator<TEntry>): IFriendCollection;
+  batchDelete(userNames: string[]): IFriendCollection;
 
   serialize(): TFriendCollectionData;
 
@@ -77,6 +78,12 @@ class FriendCollectionImpl implements IFriendCollection {
     );
   }
 
+  batchDelete(userNames: string[]) {
+    return new FriendCollectionImpl(
+      this.serialize().filter((entry) => !userNames.includes(entry.userName))
+    );
+  }
+
   serialize(): TFriendCollectionData {
     return iterateOverMap(this.hereMap);
   }
@@ -96,6 +103,7 @@ class FriendCollectionImpl implements IFriendCollection {
   }
 
   resolveConflicts(other: IFriendCollection) {
+    // Maybe this can be implemented using only to-be-added methods of friendcollection?
     const mapClone = new Map(this.hereMap.entries());
     resolveConflictsInMap(mapClone, other.hereMap);
     return new FriendCollectionImpl(iterateOverMap(mapClone));
