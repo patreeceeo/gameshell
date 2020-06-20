@@ -1,1 +1,1 @@
-export { FriendCollection } from "./FriendCollection";
+export { IFriendCollection, FriendCollection } from "./FriendCollection";

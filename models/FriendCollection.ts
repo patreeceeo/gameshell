@@ -1,4 +1,4 @@
-interface TFriend {
+export interface TFriend {
   isInvited: boolean;
   hasAcceptedInvite: boolean;
 }
@@ -7,47 +7,81 @@ export interface TFriendCollection {
   [userName: string]: TFriend;
 }
 
-type TFriendCollectionData = readonly (TFriend & { userName: string })[];
+type TEntry = TFriend & { userName: string };
 
-type TIterator<T> = (f: TFriend & { userName: string }) => T;
+type TFriendCollectionData = readonly TEntry[];
 
-interface IFriendCollection {
+type TIterator<T> = (entry: TEntry) => T;
+
+export interface IFriendCollection {
   hereMap: Map<string, TFriend>;
+  size: number;
 
-  get(userName: string): TFriend;
+  add(userNames: string[]): IFriendCollection;
+  byUserNameGet(userName: string): TFriend;
+
+  byUserNameSet(userName: string, friend: TFriend): IFriendCollection;
 
   serialize(): TFriendCollectionData;
 
-  map<T>(it: TIterator<T>): FriendCollectionImpl;
+  map<T>(it: TIterator<T>): IFriendCollection;
 
-  filter(test: TIterator<boolean>): FriendCollectionImpl;
+  filter(test: TIterator<boolean>): IFriendCollection;
+  filter(test: string[]): IFriendCollection;
+  resolveConflicts(other: IFriendCollection): IFriendCollection;
 }
 
 class FriendCollectionImpl implements IFriendCollection {
   hereMap: Map<string, TFriend>;
+  size: number;
 
   constructor(data: TFriendCollectionData) {
     this.hereMap = FriendCollectionImpl.createMap(data);
+    Object.defineProperty(this, "size", {
+      get: () => this.hereMap.size,
+    });
   }
 
   private static createMap(data: TFriendCollectionData) {
     return new Map(data.map(({ userName, ...stuff }) => [userName, stuff]));
   }
 
-  get(userName: string): TFriend {
+  add(userNames: string[]) {
+    return new FriendCollectionImpl(
+      userNames.map((userName) => ({
+        userName,
+        isInvited: false,
+        hasAcceptedInvite: false,
+      }))
+    );
+  }
+
+  byUserNameGet(userName: string) {
     return this.hereMap.get(userName);
   }
 
-  serialize(): TFriendCollectionData {
-    return iterateOverMap(this.hereMap, (x) => x);
+  byUserNameSet(userName: string, friend: TFriend) {
+    return new FriendCollectionImpl([...this.serialize(), {
+      userName,
+      ...friend
+    }])
   }
 
-  map<T>(it: TIterator<T>): FriendCollectionImpl {
+  serialize() {
+    return iterateOverMap(this.hereMap);
+  }
+
+  map<T>(it: TIterator<T>) {
     return new FriendCollectionImpl(iterateOverMap(this.hereMap, it));
   }
 
-  filter(test: TIterator<boolean>): FriendCollectionImpl {
-    const data = iterateOverMap(this.hereMap, (x) => x).filter(test);
+  filter(test: TIterator<boolean> | string[]) {
+    const filterCallback =
+      typeof test === "function"
+        ? test
+        : ({ userName }: { userName: string }) => test.includes(userName);
+
+    const data = iterateOverMap(this.hereMap).filter(filterCallback);
     return new FriendCollectionImpl(data);
   }
 

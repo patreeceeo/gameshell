@@ -1,6 +1,6 @@
 import { FriendCollection } from ".";
 
-describe("FriendCollection#get", () => {
+describe("FriendCollection#byUserNameGet", () => {
   it("returns the item corresponding to first arg", () => {
     const calvin = {
       isInvited: true,
@@ -8,7 +8,25 @@ describe("FriendCollection#get", () => {
     };
     const sut = FriendCollection([{ userName: "calvin", ...calvin }]);
 
-    expect(sut.get("calvin")).toStrictEqual(calvin);
+    expect(sut.byUserNameGet("calvin")).toStrictEqual(calvin);
+  });
+});
+
+describe("FriendCollection#byUserNameSet", () => {
+  it("returns a new collection with the entry identified by 1st arg replaced by the 2nd arg", () => {
+    const calvin = {
+      isInvited: true,
+      hasAcceptedInvite: false,
+    };
+    const calvin2 = {
+      isInvited: true,
+      hasAcceptedInvite: true,
+    };
+    const sut = FriendCollection([{ userName: "calvin", ...calvin }]);
+
+    const newSut = sut.byUserNameSet("calvin", calvin2);
+
+    expect(newSut.byUserNameGet("calvin")).toStrictEqual(calvin2);
   });
 });
 
