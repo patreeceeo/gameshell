@@ -14,6 +14,7 @@ import {
   startGame,
   acceptInvite,
 } from "../requests";
+import { FriendCollection } from "../../models";
 
 jest.mock("../requests");
 
@@ -48,12 +49,13 @@ describe("concierge machine", () => {
     it("does not allow duplicate user names via client-side validation", () => {
       const sutWithContext = sut.withContext({
         ...sut.context,
-        friendsByUserName: {
-          Rick: {
+        friendsByUserName: FriendCollection([
+          {
+            userName: "Rick",
             isInvited: true,
             hasAcceptedInvite: false,
           },
-        },
+        ]),
       });
 
       const service = interpret(sutWithContext);
@@ -144,12 +146,13 @@ describe("concierge machine", () => {
         ],
       } as TFriendsArrive);
 
-      expect(newState.context.friendsByUserName).toEqual({
-        fry: {
+      expect(newState.context.friendsByUserName.serialize()).toEqual([
+        {
+          userName: "fry",
           isInvited: false,
           hasAcceptedInvite: false,
         },
-      });
+      ]);
     });
 
     it("allows user to select a game", () => {
@@ -164,20 +167,23 @@ describe("concierge machine", () => {
     it("allows user to invite friends", () => {
       const sutWithContext = sut.withContext({
         ...sut.context,
-        friendsByUserName: {
-          morty: {
+        friendsByUserName: FriendCollection([
+          {
+            userName: "morty",
             isInvited: false,
             hasAcceptedInvite: false,
           },
-          rick: {
+          {
+            userName: "rick",
             isInvited: false,
             hasAcceptedInvite: false,
           },
-          kronenberger: {
+          {
+            userName: "kronenberger",
             isInvited: false,
             hasAcceptedInvite: false,
           },
-        },
+        ]),
       });
 
       let state = sutWithContext.transition("what", {
@@ -193,17 +199,20 @@ describe("concierge machine", () => {
         userNames: ["rick"],
       } as TInviteFriends);
 
-      expect(state.context.friendsByUserName).toEqual({
-        morty: expect.objectContaining({
+      expect(state.context.friendsByUserName.serialize()).toEqual([
+        expect.objectContaining({
+          userName: "morty",
           isInvited: true,
         }),
-        rick: expect.objectContaining({
+        expect.objectContaining({
+          userName: "rick",
           isInvited: true,
         }),
-        kronenberger: expect.objectContaining({
+        expect.objectContaining({
+          userName: "kronenberger",
           isInvited: false,
         }),
-      });
+      ]);
     });
 
     it("lets the server know who is invited", (done) => {
@@ -238,20 +247,23 @@ describe("concierge machine", () => {
       const sutWithContext = sut.withContext({
         ...sut.context,
         userNameLocal: "Squanchy",
-        friendsByUserName: {
-          morty: {
+        friendsByUserName: FriendCollection([
+          {
+            userName: "morty",
             isInvited: true,
             hasAcceptedInvite: false,
           },
-          rick: {
+          {
+            userName: "rick",
             isInvited: false,
             hasAcceptedInvite: false,
           },
-          kronenberger: {
+          {
+            userName: "kronenberger",
             isInvited: false,
             hasAcceptedInvite: false,
           },
-        },
+        ]),
       });
 
       // TODO: defend against accepting invitations that haven't been sent?
@@ -260,17 +272,20 @@ describe("concierge machine", () => {
         userNames: ["morty"],
       } as TFriendsAcceptInvite);
 
-      expect(newState.context.friendsByUserName).toEqual({
-        morty: expect.objectContaining({
+      expect(newState.context.friendsByUserName.serialize()).toEqual([
+        expect.objectContaining({
+          userName: "morty",
           hasAcceptedInvite: true,
         }),
-        rick: expect.objectContaining({
+        expect.objectContaining({
+          userName: "rick",
           hasAcceptedInvite: false,
         }),
-        kronenberger: expect.objectContaining({
+        expect.objectContaining({
+          userName: "kronenberger",
           hasAcceptedInvite: false,
         }),
-      });
+      ]);
     });
 
     it("allows user to recieve invites", () => {
@@ -345,12 +360,13 @@ describe("concierge machine", () => {
       const sutWithContext = sut.withContext({
         ...sut.context,
         selectedGameId: "min3test",
-        friendsByUserName: {
-          Tina: {
+        friendsByUserName: FriendCollection([
+          {
+            userName: "Tina",
             isInvited: true,
             hasAcceptedInvite: true,
           },
-        },
+        ]),
       });
 
       const service = interpret(sutWithContext);
@@ -382,16 +398,18 @@ describe("concierge machine", () => {
       const sutWithContext = sut.withContext({
         ...sut.context,
         selectedGameId: "boggle",
-        friendsByUserName: {
-          JoJo: {
+        friendsByUserName: FriendCollection([
+          {
+            userName: "JoJo",
             isInvited: true,
             hasAcceptedInvite: true,
           },
-          Elsa: {
+          {
+            userName: "Elsa",
             isInvited: true,
             hasAcceptedInvite: true,
           },
-        },
+        ]),
       });
 
       const service = interpret(sutWithContext);

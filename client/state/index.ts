@@ -6,6 +6,7 @@ import { Machine, StateNodeConfig, assign } from "xstate";
 import * as req from "../requests";
 import { IUser } from "../../server/state";
 import produce from "immer";
+import { IFriendCollection, FriendCollection } from "../../models";
 
 interface TWaitThenWorkStates {
   states: {
@@ -33,31 +34,6 @@ type TWaitThenWorkStateNodeConfig = StateNodeConfig<
   TEvent
 >;
 
-interface TFriend {
-  isInvited: boolean;
-  hasAcceptedInvite: boolean;
-}
-
-export interface TFriendCollection {
-  [userName: string]: TFriend;
-}
-
-// TODO combine with interface?
-export class FriendCollection {
-  static resolveConflicts(local: TFriendCollection, remote: TFriendCollection) {
-    return produce(local, (draft) => {
-      Object.keys(remote).forEach((userName) => {
-        draft[userName] = draft[userName] || remote[userName];
-      });
-      Object.keys(local).forEach((userName) => {
-        if (!remote[userName]) {
-          delete draft[userName];
-        }
-      });
-    });
-  }
-}
-
 export interface TGameCollection {
   [gameId: string]: {
     displayName: string;
@@ -81,7 +57,7 @@ export interface TInvitesRecievedCollection {
 
 interface TContext {
   userNameLocal?: string;
-  friendsByUserName: TFriendCollection;
+  friendsByUserName: IFriendCollection;
   selectedGameId?: string;
   error?: Error;
   // TODO map invalid reason type to invalid reasons so only 1 per type?
@@ -185,8 +161,8 @@ function getMinAndMaxPlayers(gameId: string) {
 }
 
 function getPlayers(context: TContext) {
-  return Object.entries(context.friendsByUserName).filter(
-    ([_, { isInvited, hasAcceptedInvite }]) => isInvited && hasAcceptedInvite
+  return context.friendsByUserName.filter(
+    ({ isInvited, hasAcceptedInvite }) => isInvited && hasAcceptedInvite
   );
 }
 
@@ -194,7 +170,7 @@ function getPlayerCount(context: TContext) {
   /* add one to count local user
    * TODO: what if local user is spectating?
    */
-  return getPlayers(context).length + 1;
+  return context.friendsByUserName.size + 1;
 }
 
 function areSelectionsValid(context: TContext) {
@@ -211,7 +187,7 @@ function areSelectionsValid(context: TContext) {
 }
 
 function uniqueUserNameLocal(context: TContext, event: TIdentifyUser) {
-  return !context.friendsByUserName[event.userName];
+  return !context.friendsByUserName.has(event.userName);
 }
 
 export const identifyUser = assign({
@@ -220,16 +196,10 @@ export const identifyUser = assign({
 
 const inviteFriends = assign({
   friendsByUserName: (context: TContext, event: TInviteFriends) => {
-    // TODO: watch out for memory leaks!
-    return event.userNames.reduce((acc: TFriendCollection, name: string) => {
-      return {
-        ...acc,
-        [name]: {
-          ...acc[name],
-          isInvited: true,
-        },
-      };
-    }, context.friendsByUserName);
+    return context.friendsByUserName.batchUpdate(event.userNames, (entry) => ({
+      ...entry,
+      isInvited: true,
+    }));
   },
 });
 
@@ -246,42 +216,24 @@ const acceptInvite = assign({
 
 const ackAcceptedInvites = assign({
   friendsByUserName: (context: TContext, event: TFriendsAcceptInvite) => {
-    // TODO: watch out for memory leaks!
-    return event.userNames.reduce((acc: TFriendCollection, name: string) => {
-      return {
-        ...acc,
-        [name]: {
-          ...acc[name],
-          hasAcceptedInvite: true,
-        },
-      };
-    }, context.friendsByUserName);
+    return context.friendsByUserName.batchUpdate(event.userNames, (entry) => ({
+      ...entry,
+      hasAcceptedInvite: true,
+    }));
   },
 });
 
 const ackFriendsArrive = assign({
   friendsByUserName: (context: TContext, event: TFriendsArrive) => {
-    return produce(context.friendsByUserName, (draft) => {
-      event.users.forEach(({ userName }) => {
-        draft[userName] = {
-          isInvited: false,
-          hasAcceptedInvite: false,
-        };
-      });
-    });
+    return context.friendsByUserName.add(
+      event.users.map(({ userName }) => userName)
+    );
   },
 });
 
 const ackFriendsDepart = assign({
   friendsByUserName: (context: TContext, event: TFriendsDepart) => {
-    // TODO: watch out for memory leaks!
-    return event.userNames.reduce((acc: TFriendCollection, userName) => {
-      const copy = {
-        ...acc,
-      };
-      delete copy[userName];
-      return copy;
-    }, context.friendsByUserName);
+    return context.friendsByUserName.batchDelete(event.userNames);
   },
 });
 
@@ -344,7 +296,7 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
     initial: "who",
     context: {
       userNameLocal: null,
-      friendsByUserName: {},
+      friendsByUserName: FriendCollection([]),
       selectedGameId: null,
       invitesRecievedByUserName: {},
       invalidBecause: [],
@@ -521,7 +473,9 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
             return event.type === "START_GAME" &&
               context.invalidBecause.length === 0
               ? req.startGame(
-                  getPlayers(context).map(([userName]) => userName),
+                  getPlayers(context)
+                    .serialize()
+                    .map(({ userName }) => userName),
                   context.selectedGameId
                 )
               : Promise.resolve({});
