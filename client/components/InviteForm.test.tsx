@@ -1,20 +1,24 @@
 import * as React from "react";
 import { InviteForm } from "./";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { FriendCollection } from "../../models";
 
 const interactiveEls = "label, input, button";
 
 describe("InviteForm when app is in initial state", () => {
-  const friendsByUserName = {
-    adam: {
+  const friendsByUserName = FriendCollection([
+    {
+      userName: "adam",
       isInvited: false,
       hasAcceptedInvite: false,
     },
-    steve: {
+    {
+      userName: "steve",
       isInvited: false,
       hasAcceptedInvite: false,
     },
-  };
+  ]);
+
   let spySubmit: jest.SpyInstance;
   beforeEach(() => {
     spySubmit = jest.fn();
@@ -87,16 +91,18 @@ describe("InviteForm when app is in initial state", () => {
 });
 
 describe("InviteForm when invites have been sent", () => {
-  const friendsByUserName = {
-    adam: {
+  const friendsByUserName = FriendCollection([
+    {
+      userName: "adam",
       isInvited: true,
       hasAcceptedInvite: false,
     },
-    steve: {
+    {
+      userName: "steve",
       isInvited: false,
       hasAcceptedInvite: false,
     },
-  };
+  ]);
   beforeEach(() => {
     render(<InviteForm friendsByUserName={friendsByUserName} />);
   });
@@ -109,16 +115,18 @@ describe("InviteForm when invites have been sent", () => {
 });
 
 describe("InviteForm when invites have been accepted", () => {
-  const friendsByUserName = {
-    adam: {
+  const friendsByUserName = FriendCollection([
+    {
+      userName: "adam",
       isInvited: true,
       hasAcceptedInvite: true,
     },
-    steve: {
+    {
+      userName: "steve",
       isInvited: false,
       hasAcceptedInvite: false,
     },
-  };
+  ]);
   beforeEach(() => {
     render(<InviteForm friendsByUserName={friendsByUserName} />);
   });

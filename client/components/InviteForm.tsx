@@ -1,13 +1,13 @@
 import * as React from "react";
-import { TFriendCollection, FriendCollection } from "../state";
-import produce from "immer";
 import { partial } from "../../utils";
+import { IFriendCollection } from "../../models";
+import { TEntry } from "../../models/FriendCollection";
 
 type TFormData = string[];
 
 interface TProps {
   onSubmit?: (data: TFormData) => void;
-  friendsByUserName: TFriendCollection;
+  friendsByUserName: IFriendCollection;
 }
 
 export const InviteForm: React.ComponentType<TProps> = (props) => {
@@ -16,20 +16,16 @@ export const InviteForm: React.ComponentType<TProps> = (props) => {
   );
 
   React.useEffect(() => {
-    console.log("updating friends", props.friendsByUserName);
     setFriendsByUserName(
-      FriendCollection.resolveConflicts(
-        friendsByUserName,
-        props.friendsByUserName
-      )
+      friendsByUserName.resolveConflicts(props.friendsByUserName)
     );
-  });
+  }, [props.friendsByUserName]);
 
   return (
     <form onSubmit={handleSubmit}>
       <table>
         <tbody>
-          {Object.entries(friendsByUserName).map(([userName, info]) => {
+          {friendsByUserName.serialize().map(({ userName, ...info }) => {
             return (
               <Row
                 key={userName}
@@ -37,7 +33,7 @@ export const InviteForm: React.ComponentType<TProps> = (props) => {
                 {...info}
                 onChange={partial(handleChange, userName)}
                 systemHasAckInvite={
-                  props.friendsByUserName[userName]?.isInvited
+                  props.friendsByUserName.get(userName)?.isInvited
                 }
               />
             );
@@ -56,35 +52,35 @@ export const InviteForm: React.ComponentType<TProps> = (props) => {
 
   function inviteAll() {
     setFriendsByUserName(
-      produce(friendsByUserName, (draft: TFriendCollection) => {
-        Object.keys(draft).forEach((key) => (draft[key].isInvited = true));
-      })
+      friendsByUserName.map((entry) => ({
+        ...entry,
+        isInvited: true,
+      }))
     );
   }
 
   function handleChange(userName: string) {
     setFriendsByUserName(
-      produce(friendsByUserName, (draft: TFriendCollection) => {
-        draft[userName].isInvited = !draft[userName].isInvited;
-      })
+      friendsByUserName.batchUpdate([userName], (entry) => ({
+        ...entry,
+        isInvited: true,
+      }))
     );
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     props.onSubmit(
-      Object.entries(friendsByUserName)
-        .filter(([_, { isInvited }]) => {
-          return isInvited;
-        })
-        .map(([userName]) => userName)
+      friendsByUserName
+        .filter(({ isInvited }) => isInvited)
+        .serialize()
+        .map(({ userName }) => userName)
     );
   }
 };
 
-type TRowData = TFriendCollection[string] & {
+type TRowData = TEntry & {
   onChange: any;
-  userName: string;
   systemHasAckInvite: boolean;
 };
 
