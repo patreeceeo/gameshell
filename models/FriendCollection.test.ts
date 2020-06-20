@@ -1,6 +1,6 @@
 import { FriendCollection } from ".";
 
-describe("FriendCollection#byUserNameGet", () => {
+describe("FriendCollection#get", () => {
   it("returns the item corresponding to first arg", () => {
     const calvin = {
       isInvited: true,
@@ -8,11 +8,24 @@ describe("FriendCollection#byUserNameGet", () => {
     };
     const sut = FriendCollection([{ userName: "calvin", ...calvin }]);
 
-    expect(sut.byUserNameGet("calvin")).toStrictEqual(calvin);
+    expect(sut.get("calvin")).toStrictEqual(calvin);
   });
 });
 
-describe("FriendCollection#byUserNameSet", () => {
+describe("FriendCollection#has", () => {
+  it("returns the item corresponding to first arg", () => {
+    const calvin = {
+      isInvited: true,
+      hasAcceptedInvite: true,
+    };
+    const sut = FriendCollection([{ userName: "calvin", ...calvin }]);
+
+    expect(sut.has("calvin")).toBe(true);
+    expect(sut.has("hobbes")).toBe(false);
+  });
+});
+
+describe("FriendCollection#batchUpdate", () => {
   it("returns a new collection with the entries identified by 1st arg updated by the 2nd arg", () => {
     const calvin = {
       isInvited: true,
@@ -27,13 +40,13 @@ describe("FriendCollection#byUserNameSet", () => {
       { userName: "hobbes", ...hobbes },
     ]);
 
-    const newSut = sut.byUserNameSet(["calvin"], (calvin) => ({
+    const newSut = sut.batchUpdate(["calvin"], (calvin) => ({
       ...calvin,
       hasAcceptedInvite: true,
     }));
 
-    expect(newSut.byUserNameGet("calvin").hasAcceptedInvite).toBe(true);
-    expect(newSut.byUserNameGet("hobbes").hasAcceptedInvite).toBe(false);
+    expect(newSut.get("calvin").hasAcceptedInvite).toBe(true);
+    expect(newSut.get("hobbes").hasAcceptedInvite).toBe(false);
   });
 });
 

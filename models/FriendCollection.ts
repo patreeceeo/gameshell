@@ -18,9 +18,11 @@ export interface IFriendCollection {
   size: number;
 
   add(userNames: string[]): IFriendCollection;
-  byUserNameGet(userName: string): TFriend;
 
-  byUserNameSet(userNames: string[], it: TIterator<TEntry>): IFriendCollection;
+  get(userName: string): TFriend;
+  has(userName: string): boolean;
+
+  batchUpdate(userNames: string[], it: TIterator<TEntry>): IFriendCollection;
 
   serialize(): TFriendCollectionData;
 
@@ -56,11 +58,14 @@ class FriendCollectionImpl implements IFriendCollection {
     );
   }
 
-  byUserNameGet(userName: string) {
+  get(userName: string) {
     return this.hereMap.get(userName);
   }
+  has(userName: string) {
+    return this.hereMap.has(userName);
+  }
 
-  byUserNameSet(userNames: string[], it: TIterator<TEntry>) {
+  batchUpdate(userNames: string[], it: TIterator<TEntry>) {
     return new FriendCollectionImpl(
       this.serialize().map((entry) => {
         if (userNames.includes(entry.userName)) {
