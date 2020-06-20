@@ -13,20 +13,27 @@ describe("FriendCollection#byUserNameGet", () => {
 });
 
 describe("FriendCollection#byUserNameSet", () => {
-  it("returns a new collection with the entry identified by 1st arg replaced by the 2nd arg", () => {
+  it("returns a new collection with the entries identified by 1st arg updated by the 2nd arg", () => {
     const calvin = {
       isInvited: true,
       hasAcceptedInvite: false,
     };
-    const calvin2 = {
+    const hobbes = {
       isInvited: true,
-      hasAcceptedInvite: true,
+      hasAcceptedInvite: false,
     };
-    const sut = FriendCollection([{ userName: "calvin", ...calvin }]);
+    const sut = FriendCollection([
+      { userName: "calvin", ...calvin },
+      { userName: "hobbes", ...hobbes },
+    ]);
 
-    const newSut = sut.byUserNameSet("calvin", calvin2);
+    const newSut = sut.byUserNameSet(["calvin"], (calvin) => ({
+      ...calvin,
+      hasAcceptedInvite: true,
+    }));
 
-    expect(newSut.byUserNameGet("calvin")).toStrictEqual(calvin2);
+    expect(newSut.byUserNameGet("calvin").hasAcceptedInvite).toBe(true);
+    expect(newSut.byUserNameGet("hobbes").hasAcceptedInvite).toBe(false);
   });
 });
 

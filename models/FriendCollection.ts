@@ -20,7 +20,7 @@ export interface IFriendCollection {
   add(userNames: string[]): IFriendCollection;
   byUserNameGet(userName: string): TFriend;
 
-  byUserNameSet(userName: string, friend: TFriend): IFriendCollection;
+  byUserNameSet(userNames: string[], it: TIterator<TEntry>): IFriendCollection;
 
   serialize(): TFriendCollectionData;
 
@@ -60,14 +60,19 @@ class FriendCollectionImpl implements IFriendCollection {
     return this.hereMap.get(userName);
   }
 
-  byUserNameSet(userName: string, friend: TFriend) {
-    return new FriendCollectionImpl([...this.serialize(), {
-      userName,
-      ...friend
-    }])
+  byUserNameSet(userNames: string[], it: TIterator<TEntry>) {
+    return new FriendCollectionImpl(
+      this.serialize().map((entry) => {
+        if (userNames.includes(entry.userName)) {
+          return it(entry);
+        } else {
+          return entry;
+        }
+      })
+    );
   }
 
-  serialize() {
+  serialize(): TFriendCollectionData {
     return iterateOverMap(this.hereMap);
   }
 
