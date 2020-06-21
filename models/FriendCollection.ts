@@ -22,6 +22,8 @@ export interface IFriendCollection {
   get(userName: string): TFriend;
   has(userName: string): boolean;
 
+  keys(): string[];
+
   batchUpdate(userNames: string[], it: TIterator<TEntry>): IFriendCollection;
   batchDelete(userNames: string[]): IFriendCollection;
 
@@ -62,8 +64,13 @@ class FriendCollectionImpl implements IFriendCollection {
   get(userName: string) {
     return this.hereMap.get(userName);
   }
+
   has(userName: string) {
     return this.hereMap.has(userName);
+  }
+
+  keys() {
+    return this.serialize().map(({ userName }) => userName);
   }
 
   batchUpdate(userNames: string[], it: TIterator<TEntry>) {
@@ -103,10 +110,12 @@ class FriendCollectionImpl implements IFriendCollection {
   }
 
   resolveConflicts(other: IFriendCollection) {
-    // Maybe this can be implemented using only to-be-added methods of friendcollection?
-    const mapClone = new Map(this.hereMap.entries());
-    resolveConflictsInMap(mapClone, other.hereMap);
-    return new FriendCollectionImpl(iterateOverMap(mapClone));
+    const withAdds = other.batchUpdate(other.keys(), (entry) => ({
+      ...entry,
+      ...other.get(entry.userName),
+    }));
+
+    return withAdds.batchDelete(this.keys().filter((key) => !other.has(key)));
   }
 }
 
@@ -126,22 +135,6 @@ function callIterator<T>(
   [userName, stuff]: [string, TFriend]
 ) {
   return it.call(null, { userName, ...stuff });
-}
-
-function resolveConflictsInMap<K, V>(
-  behind: Map<K, V>,
-  ahead: Map<K, V>
-): void {
-  for (const [key, value] of ahead.entries()) {
-    if (!behind.has(key)) {
-      behind.set(key, value);
-    }
-  }
-  for (const [key] of behind.entries()) {
-    if (!ahead.has(key)) {
-      behind.delete(key);
-    }
-  }
 }
 
 export function FriendCollection(data: TFriendCollectionData) {

@@ -473,9 +473,7 @@ const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
             return event.type === "START_GAME" &&
               context.invalidBecause.length === 0
               ? req.startGame(
-                  getPlayers(context)
-                    .serialize()
-                    .map(({ userName }) => userName),
+                  getPlayers(context).keys(),
                   context.selectedGameId
                 )
               : Promise.resolve({});

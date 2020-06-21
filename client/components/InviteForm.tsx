@@ -71,10 +71,7 @@ export const InviteForm: React.ComponentType<TProps> = (props) => {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     props.onSubmit(
-      friendsByUserName
-        .filter(({ isInvited }) => isInvited)
-        .serialize()
-        .map(({ userName }) => userName)
+      friendsByUserName.filter(({ isInvited }) => isInvited).keys()
     );
   }
 };
