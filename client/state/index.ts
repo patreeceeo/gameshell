@@ -1,8 +1,5 @@
 // TODO refactor to use @state/fsm ?
 import { Machine, StateNodeConfig, assign } from "xstate";
-// TODO use T instead of I
-// also favor classes over interfaces?
-// also find a central place for these types
 import * as req from "../requests";
 import { IUser } from "../../server/state";
 import produce from "immer";
