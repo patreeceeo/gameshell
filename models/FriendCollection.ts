@@ -7,7 +7,7 @@ export interface TFriendCollection {
   [userName: string]: TFriend;
 }
 
-type TEntry = TFriend & { userName: string };
+export type TEntry = TFriend & { userName: string };
 
 type TFriendCollectionData = readonly TEntry[];
 

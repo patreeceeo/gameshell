@@ -47,7 +47,7 @@ const Concierge: React.ComponentType<{}> = () => {
               {state.context.userNameLocal} ({"<=="} that's you!)
             </li>
           )}
-          {listFriends().map(([userName]) => (
+          {state.context.friendsByUserName.serialize().map(({ userName }) => (
             <li key={userName}>{userName}</li>
           ))}
         </ul>
@@ -97,10 +97,6 @@ const Concierge: React.ComponentType<{}> = () => {
 
   function handleAcceptInvite(userNameRemote: string) {
     send({ type: "ACCEPT_INVITE", userNameRemote });
-  }
-
-  function listFriends() {
-    return Object.entries(state.context.friendsByUserName);
   }
 };
 
