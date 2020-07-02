@@ -6,7 +6,7 @@ export class Identity {
   constructor(readonly userName: string) {}
 }
 
-class Response {
+export class Response {
   success: boolean;
 }
 

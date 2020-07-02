@@ -1,12 +1,12 @@
 import * as React from "react";
 import { InviteForm } from "./";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { FriendCollection } from "../../models";
+import * as Friends from "../../models/FriendCollection";
 
 const interactiveEls = "label, input, button";
 
 describe("InviteForm when app is in initial state", () => {
-  const friendsByUserName = FriendCollection([
+  const friendsByUserName = Friends.create([
     {
       userName: "adam",
       isInvited: false,
@@ -91,7 +91,7 @@ describe("InviteForm when app is in initial state", () => {
 });
 
 describe("InviteForm when invites have been sent", () => {
-  const friendsByUserName = FriendCollection([
+  const friendsByUserName = Friends.create([
     {
       userName: "adam",
       isInvited: true,
@@ -115,7 +115,7 @@ describe("InviteForm when invites have been sent", () => {
 });
 
 describe("InviteForm when invites have been accepted", () => {
-  const friendsByUserName = FriendCollection([
+  const friendsByUserName = Friends.create([
     {
       userName: "adam",
       isInvited: true,

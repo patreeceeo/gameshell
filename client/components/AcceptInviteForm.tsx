@@ -1,9 +1,10 @@
 import * as React from "react";
-import { TInvitesRecievedCollection, TGameCollection } from "../state";
+import { TGameCollection } from "../state";
+import * as Invites from "../../models/InviteCollection";
 
 interface TProps {
   onAccept: (userNameRemote: string) => void;
-  invitesRecievedByUserName: TInvitesRecievedCollection;
+  invitesRecievedByUserName: Invites.TTabularMap;
   games: TGameCollection;
 }
 
@@ -14,7 +15,7 @@ export const AcceptInviteForm: React.ComponentType<TProps> = (props) => {
 
   return (
     <ul>
-      {Object.entries(props.invitesRecievedByUserName).map(
+      {[...props.invitesRecievedByUserName.entries()].map(
         ([userNameRemote, { gameId }]) => (
           <li key={userNameRemote} aria-label={`invite from ${userNameRemote}`}>
             {gameId &&

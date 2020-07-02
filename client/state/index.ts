@@ -1,35 +1,9 @@
 // TODO refactor to use @state/fsm ?
-import { Machine, StateNodeConfig, assign } from "xstate";
-import * as req from "../requests";
+import { createMachine, assign } from "@xstate/fsm";
+import * as requests from "../requests";
 import { IUser } from "../../server/state";
-import produce from "immer";
-import { IFriendCollection, FriendCollection } from "../../models";
-
-interface TWaitThenWorkStates {
-  states: {
-    waiting: {
-      states: {
-        initial: {};
-        invalid: {};
-        ready?: {};
-      };
-    };
-    working: {
-      states: {
-        fetching?: {};
-        validating?: {};
-      };
-    };
-    finished?: {};
-    error?: {};
-  };
-}
-
-type TWaitThenWorkStateNodeConfig = StateNodeConfig<
-  TContext,
-  TWaitThenWorkStates,
-  TEvent
->;
+import * as Friends from "../../models/FriendCollection";
+import * as Invites from "../../models/InviteCollection";
 
 export interface TGameCollection {
   [gameId: string]: {
@@ -52,23 +26,14 @@ export interface TInvitesRecievedCollection {
   [userName: string]: TInviteRecieved;
 }
 
-interface TContext {
+export interface TContext {
   userNameLocal?: string;
-  friendsByUserName: IFriendCollection;
+  friendsByUserName: Friends.TTabularMap;
   selectedGameId?: string;
   error?: Error;
   // TODO map invalid reason type to invalid reasons so only 1 per type?
   invalidBecause: TInvalidReason[];
-  invitesRecievedByUserName: TInvitesRecievedCollection;
-}
-
-interface TStateSchema {
-  states: {
-    who: TWaitThenWorkStateNodeConfig;
-    what: TWaitThenWorkStateNodeConfig;
-    respondToInvites: TWaitThenWorkStateNodeConfig;
-    startGame: {};
-  };
+  invitesRecievedByUserName: Invites.TTabularMap;
 }
 
 export type TIdentifyUser = {
@@ -103,7 +68,7 @@ export type TSelectGame = {
 
 type TSetStatus = {
   type: "SET_STATUS";
-  currentStatus: req.UserStatus;
+  currentStatus: requests.UserStatus;
 };
 
 export type TFriendsArrive = {
@@ -118,21 +83,12 @@ export type TFriendsDepart = {
 
 export type TStartGame = { type: "START_GAME" };
 
-type TErrorEvent = {
-  type: string;
-  data: {
-    error?: Error;
-    invalidReason?: TInvalidReason;
-  };
-};
-
 type TRetry = {
   type: "RETRY";
 };
 
-type TEvent =
+export type TEvent =
   | TIdentifyUser
-  | { type: "FINISH_WORKING" }
   | TInviteFriends
   | TRecieveInvites
   | TFriendsAcceptInvite
@@ -141,9 +97,7 @@ type TEvent =
   | TFriendsDepart
   | TSelectGame
   | TStartGame
-  | { type: "JOIN_GAME" }
   | TSetStatus
-  | TErrorEvent
   | TRetry;
 
 const gameData = {
@@ -157,17 +111,17 @@ function getMinAndMaxPlayers(gameId: string) {
   return (gameData as any)[gameId];
 }
 
-function getPlayers(context: TContext) {
-  return context.friendsByUserName.filter(
-    ({ isInvited, hasAcceptedInvite }) => isInvited && hasAcceptedInvite
-  );
-}
-
-function getPlayerCount(context: TContext) {
+// TODO should this be a collection method?
+export function getPlayerCount(context: TContext) {
   /* add one to count local user
    * TODO: what if local user is spectating?
    */
-  return context.friendsByUserName.size + 1;
+  return (
+    Friends.filter(
+      context.friendsByUserName,
+      ({ isInvited, hasAcceptedInvite }) => isInvited && hasAcceptedInvite
+    ).size + 1
+  );
 }
 
 function areSelectionsValid(context: TContext) {
@@ -191,61 +145,66 @@ export const identifyUser = assign({
   userNameLocal: (_, { userName }: TIdentifyUser) => userName,
 });
 
-const inviteFriends = assign({
+// Optimistically update
+export const optUpFriendsInvited = assign({
   friendsByUserName: (context: TContext, event: TInviteFriends) => {
-    return context.friendsByUserName.batchUpdate(event.userNames, (entry) => ({
-      ...entry,
-      isInvited: true,
-    }));
+    return Friends.update(
+      context.friendsByUserName,
+      (entry) => ({
+        ...entry,
+        isInvited: true,
+      }),
+      { subset: event.userNames }
+    );
   },
 });
 
 const acceptInvite = assign({
   invitesRecievedByUserName: (context: TContext, event: TAcceptInvite) => {
-    return produce(context.invitesRecievedByUserName, (draft) => {
-      draft[event.userNameRemote] = {
-        ...draft[event.userNameRemote],
-        hasBeenAccepted: true,
-      };
-    });
+    return Invites.update(
+      context.invitesRecievedByUserName,
+      (entry) => ({ ...entry, hasBeenAccepted: true }),
+      { subset: [event.userNameRemote] }
+    );
   },
 });
 
 const ackAcceptedInvites = assign({
   friendsByUserName: (context: TContext, event: TFriendsAcceptInvite) => {
-    return context.friendsByUserName.batchUpdate(event.userNames, (entry) => ({
-      ...entry,
-      hasAcceptedInvite: true,
-    }));
+    return Friends.update(
+      context.friendsByUserName,
+      (entry) => ({
+        ...entry,
+        hasAcceptedInvite: true,
+      }),
+      { subset: event.userNames }
+    );
   },
 });
 
 const ackFriendsArrive = assign({
   friendsByUserName: (context: TContext, event: TFriendsArrive) => {
-    return context.friendsByUserName.add(
-      event.users.map(({ userName }) => userName)
+    return Friends.add(
+      context.friendsByUserName,
+      event.users.map(({ userName }) => ({
+        userName,
+        // shower thought: normalize this data using InviteCollection?
+        isInvited: false,
+        hasAcceptedInvite: false,
+      }))
     );
   },
 });
 
 const ackFriendsDepart = assign({
   friendsByUserName: (context: TContext, event: TFriendsDepart) => {
-    return context.friendsByUserName.batchDelete(event.userNames);
+    return Friends.drop(context.friendsByUserName, event.userNames);
   },
 });
 
 const ackRecieveInvites = assign({
   invitesRecievedByUserName: (context: TContext, event: TRecieveInvites) => {
-    // TODO: watch out for memory leaks!
-    return event.payload.reduce((acc: TInvitesRecievedCollection, invite) => {
-      return {
-        ...acc,
-        [invite.userNameRemote]: {
-          gameId: invite.gameId,
-          hasBeenAccepted: false,
-        },
-      };
-    }, context.invitesRecievedByUserName);
+    return Invites.add(context.invitesRecievedByUserName, event.payload);
   },
 });
 
@@ -257,22 +216,17 @@ const setStatus = assign({
   currentStatus: (_, { currentStatus }: TSetStatus) => ({ currentStatus }),
 });
 
-const handleInvalidReason = assign({
-  invalidBecause: (context: TContext, event: TErrorEvent) => {
-    return [
-      ...context.invalidBecause,
-      ...(event.data.invalidReason ? [event.data.invalidReason] : []),
-    ];
-  },
-});
-
-const setInvalidNumberOfPlayers = assign({
+const setInvalidGame = assign({
   invalidBecause: (context: TContext) => {
-    const reason = {
-      type: "numberOfPlayers",
-      allowedRange: getMinAndMaxPlayers(context.selectedGameId),
-      currentPlayerCount: getPlayerCount(context),
-    };
+    const reason = context.selectedGameId
+      ? {
+          type: "numberOfPlayers",
+          allowedRange: getMinAndMaxPlayers(context.selectedGameId),
+          currentPlayerCount: getPlayerCount(context),
+        }
+      : {
+          type: "noGameSelected",
+        };
     return [...context.invalidBecause, reason];
   },
 });
@@ -287,209 +241,101 @@ const setInvalidDuplicateUserName = assign({
   },
 });
 
-const conciergeMach = Machine<TContext, TStateSchema, TEvent>(
-  {
-    id: "concierge",
-    initial: "who",
-    context: {
-      userNameLocal: null,
-      friendsByUserName: FriendCollection([]),
-      selectedGameId: null,
-      invitesRecievedByUserName: {},
-      invalidBecause: [],
-    },
-    states: {
-      who: {
-        initial: "waiting",
-        onDone: "what",
-        states: {
-          waiting: {
-            on: {
-              IDENTIFY_USER: [
-                {
-                  target: "working",
-                  actions: identifyUser,
-                  cond: "uniqueUserNameLocal",
-                },
-                {
-                  target: ".invalid",
-                  actions: setInvalidDuplicateUserName,
-                },
-              ],
-              FRIENDS_ARRIVE: {
-                target: "waiting",
-                actions: ackFriendsArrive,
-              },
-              FRIENDS_DEPART: {
-                target: "waiting",
-                actions: ackFriendsDepart,
-              },
-              RECIEVE_INVITES: {
-                target: "waiting",
-                actions: ackRecieveInvites,
-              },
-            },
-            initial: "initial",
-            states: {
-              initial: {},
-              invalid: {},
-            },
+const eventRequestMap = {
+  IDENTIFY_USER: (_: TContext, { userName }: TIdentifyUser) => {
+    return requests.identifyUser({ userName });
+  },
+  INVITE_FRIENDS: (context: TContext, { userNames }: TInviteFriends) => {
+    return requests.sendInvites(userNames, context.selectedGameId);
+  },
+  ACCEPT_INVITE: (context: TContext, { userNameRemote }: TAcceptInvite) => {
+    return requests.acceptInvite(
+      context.userNameLocal || "no name",
+      userNameRemote
+    );
+  },
+  START_GAME: (context: TContext) => {
+    const userNames = [
+      ...Friends.filter(
+        context.friendsByUserName,
+        ({ isInvited, hasAcceptedInvite }) => isInvited && hasAcceptedInvite
+      ).keys(),
+    ];
+    if (context.selectedGameId) {
+      return requests.startGame(userNames, context.selectedGameId);
+    }
+  },
+};
+
+const conciergeMach = createMachine<TContext, TEvent>({
+  id: "concierge",
+  initial: "facil",
+  context: {
+    friendsByUserName: Friends.create([]),
+    invitesRecievedByUserName: Invites.create([]),
+    invalidBecause: [],
+  },
+  states: {
+    facil: {
+      on: {
+        IDENTIFY_USER: [
+          {
+            target: "facil",
+            actions: [identifyUser, eventRequestMap.IDENTIFY_USER],
+            cond: uniqueUserNameLocal,
           },
-          working: {
-            // TODO: handle server errors
-            on: {
-              FINISH_WORKING: "finished",
-            },
-            invoke: {
-              id: "identifyUser",
-              src: (_, event: TIdentifyUser) =>
-                req.identifyUser({ userName: event.userName }),
-              onDone: {
-                target: "finished",
-              },
-              onError: {
-                target: "error",
-                actions: handleInvalidReason,
-              },
-            },
+          {
+            target: "facil",
+            actions: setInvalidDuplicateUserName,
           },
-          finished: {
-            type: "final",
-          },
-          error: {
-            on: {
-              RETRY: "working",
-            },
-          },
+        ],
+        FRIENDS_ARRIVE: {
+          target: "facil",
+          actions: ackFriendsArrive,
         },
-      },
-      what: {
-        initial: "waiting",
-        states: {
-          waiting: {
-            initial: "initial",
-            on: {
-              SET_STATUS: {
-                // Should this go to a different state?
-                target: "waiting",
-                actions: setStatus,
-              },
-              SELECT_GAME: {
-                target: "working",
-                actions: selectGame,
-              },
-              FRIENDS_ARRIVE: {
-                target: "working",
-                actions: ackFriendsArrive,
-              },
-              FRIENDS_DEPART: {
-                target: "working",
-                actions: ackFriendsDepart,
-              },
-              INVITE_FRIENDS: {
-                target: "working",
-                actions: inviteFriends,
-              },
-              FRIENDS_ACCEPT_INVITE: {
-                target: "working",
-                actions: ackAcceptedInvites,
-              },
-              RECIEVE_INVITES: {
-                target: "#concierge.respondToInvites",
-                actions: ackRecieveInvites,
-              },
-              ACCEPT_INVITE: {
-                target: "working",
-                actions: acceptInvite,
-              },
-              START_GAME: [
-                {
-                  target: "#concierge.startGame",
-                  cond: "areSelectionsValid",
-                },
-                {
-                  target: ".invalid",
-                  actions: setInvalidNumberOfPlayers,
-                },
-              ],
-            },
-            states: {
-              initial: {},
-              invalid: {},
-              ready: {},
-            },
-          },
-          working: {
-            initial: "fetching",
-            states: {
-              fetching: {
-                invoke: {
-                  id: "invites",
-                  src: (
-                    context: TContext,
-                    event: TInviteFriends | TAcceptInvite
-                  ) => {
-                    switch (event.type) {
-                      case "INVITE_FRIENDS":
-                        return req.sendInvites(
-                          event.userNames,
-                          context.selectedGameId
-                        );
-                      case "ACCEPT_INVITE":
-                        return req.acceptInvite(
-                          context.userNameLocal,
-                          event.userNameRemote
-                        );
-                      default:
-                        return Promise.resolve({});
-                    }
-                  },
-                  onDone: "#concierge.what.waiting.ready",
-                  onError: {
-                    target: "#concierge.what.waiting",
-                    // actions: handleError,
-                  },
-                },
-              },
-            },
-          },
-          error: {},
+        FRIENDS_DEPART: {
+          target: "facil",
+          actions: ackFriendsDepart,
         },
-      },
-      respondToInvites: {
-        initial: "waiting",
-        states: {
-          waiting: {},
-          working: {},
+        RECIEVE_INVITES: {
+          target: "facil",
+          actions: ackRecieveInvites,
         },
-      },
-      startGame: {
-        invoke: {
-          id: "startGame",
-          src: (context: TContext, event: TStartGame) => {
-            return event.type === "START_GAME" &&
-              context.invalidBecause.length === 0
-              ? req.startGame(
-                  getPlayers(context).keys(),
-                  context.selectedGameId
-                )
-              : Promise.resolve({});
-          },
-          onDone: "#concierge.what.waiting.ready",
-          onError: {
-            target: "#concierge.what.waiting",
-            // actions: handleError,
-          },
+        SET_STATUS: {
+          target: "facil",
+          actions: setStatus,
         },
+        SELECT_GAME: {
+          target: "facil",
+          actions: selectGame,
+        },
+        INVITE_FRIENDS: {
+          target: "facil",
+          actions: [optUpFriendsInvited, eventRequestMap.INVITE_FRIENDS],
+        },
+        FRIENDS_ACCEPT_INVITE: {
+          target: "facil",
+          actions: ackAcceptedInvites,
+        },
+        ACCEPT_INVITE: {
+          target: "facil",
+          // cond: localUserHasBeenIdentified TODO
+          actions: [acceptInvite, eventRequestMap.ACCEPT_INVITE],
+        },
+        START_GAME: [
+          {
+            target: "facil",
+            cond: areSelectionsValid,
+            actions: eventRequestMap.START_GAME,
+          },
+          {
+            target: "facil",
+            actions: setInvalidGame,
+          },
+        ],
       },
     },
   },
-  {
-    guards: {
-      areSelectionsValid,
-      uniqueUserNameLocal,
-    },
-  }
-);
+});
 
 export default conciergeMach;

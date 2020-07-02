@@ -12,10 +12,10 @@
     "dev": "NODE_ENV=development webpack && ts-node-dev --respawn --transpileOnly index.ts"
   },
   "dependencies": {
+    "@xstate/fsm": "^1.4.0",
     "@xstate/react": "^0.8.1",
     "express": "^4.16.4",
     "html-webpack-plugin": "^4.3.0",
-    "immer": "^6.0.9",
     "jsx-loader": "^0.13.2",
     "lodash": "^4.17.15",
     "react": "^16.8.6",

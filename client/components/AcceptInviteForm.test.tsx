@@ -1,7 +1,7 @@
 import * as React from "react";
 import { AcceptInviteForm } from ".";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { TInvitesRecievedCollection } from "../state";
+import * as Invites from "../../models/InviteCollection";
 
 describe("AcceptInviteForm when invites have been recieved by local user", () => {
   const games = {
@@ -10,13 +10,13 @@ describe("AcceptInviteForm when invites have been recieved by local user", () =>
     },
   };
   let spyAccept: jest.SpyInstance;
-  const invitesRecievedByUserName: TInvitesRecievedCollection = {
-    steve: {
+  const invitesRecievedByUserName = Invites.create([
+    {
       hasBeenAccepted: false,
       userNameRemote: "steve",
       gameId: "boggle",
     },
-  };
+  ]);
   beforeEach(() => {
     spyAccept = jest.fn();
     render(

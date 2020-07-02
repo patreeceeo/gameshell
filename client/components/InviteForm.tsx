@@ -1,13 +1,12 @@
 import * as React from "react";
 import { partial } from "../../utils";
-import { IFriendCollection } from "../../models";
-import { TEntry } from "../../models/FriendCollection";
+import * as Friends from "../../models/FriendCollection";
 
 type TFormData = string[];
 
 interface TProps {
   onSubmit?: (data: TFormData) => void;
-  friendsByUserName: IFriendCollection;
+  friendsByUserName: Friends.TTabularMap;
 }
 
 export const InviteForm: React.ComponentType<TProps> = (props) => {
@@ -16,16 +15,14 @@ export const InviteForm: React.ComponentType<TProps> = (props) => {
   );
 
   React.useEffect(() => {
-    setFriendsByUserName(
-      friendsByUserName.resolveConflicts(props.friendsByUserName)
-    );
+    setFriendsByUserName(props.friendsByUserName);
   }, [props.friendsByUserName]);
 
   return (
     <form onSubmit={handleSubmit}>
       <table>
         <tbody>
-          {friendsByUserName.serialize().map(({ userName, ...info }) => {
+          {[...friendsByUserName.values()].map(({ userName, ...info }) => {
             return (
               <Row
                 key={userName}
@@ -33,7 +30,7 @@ export const InviteForm: React.ComponentType<TProps> = (props) => {
                 {...info}
                 onChange={partial(handleChange, userName)}
                 systemHasAckInvite={
-                  props.friendsByUserName.get(userName)?.isInvited
+                  props.friendsByUserName.get(userName)?.isInvited || false
                 }
               />
             );
@@ -52,7 +49,7 @@ export const InviteForm: React.ComponentType<TProps> = (props) => {
 
   function inviteAll() {
     setFriendsByUserName(
-      friendsByUserName.map((entry) => ({
+      Friends.update(friendsByUserName, (entry) => ({
         ...entry,
         isInvited: true,
       }))
@@ -61,22 +58,30 @@ export const InviteForm: React.ComponentType<TProps> = (props) => {
 
   function handleChange(userName: string) {
     setFriendsByUserName(
-      friendsByUserName.batchUpdate([userName], (entry) => ({
-        ...entry,
-        isInvited: true,
-      }))
+      Friends.update(
+        friendsByUserName,
+        (entry) => ({
+          ...entry,
+          isInvited: true,
+        }),
+        { subset: [userName] }
+      )
     );
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    props.onSubmit(
-      friendsByUserName.filter(({ isInvited }) => isInvited).keys()
-    );
+    if (props.onSubmit) {
+      const invited = Friends.filter(
+        friendsByUserName,
+        ({ isInvited }) => isInvited
+      );
+      props.onSubmit([...invited.keys()]);
+    }
   }
 };
 
-type TRowData = TEntry & {
+type TRowData = Friends.TFriend & {
   onChange: any;
   systemHasAckInvite: boolean;
 };
@@ -86,7 +91,7 @@ const Row: React.FunctionComponent<TRowData> = (props) => {
     ? `cancel invite to ${props.userName}`
     : `invite ${props.userName}`;
   return (
-    <tr>
+    <tr key={props.userName}>
       <td>
         <label aria-label={label}>
           <input
@@ -109,10 +114,4 @@ const Row: React.FunctionComponent<TRowData> = (props) => {
       </td>
     </tr>
   );
-};
-
-InviteForm.defaultProps = {
-  onSubmit: (data) => {
-    void data;
-  },
 };

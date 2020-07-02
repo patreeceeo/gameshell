@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useMachine } from "@xstate/react";
+import { useMachine } from "@xstate/react/lib/fsm";
 import Machine, { TInviteRecieved } from "../state";
 import WhoForm from "./WhoForm";
 import { InviteForm, SelectGameForm, AcceptInviteForm } from ".";
@@ -40,39 +40,37 @@ const Concierge: React.ComponentType<{}> = () => {
     <main>
       <section>
         <h1>Who goes there?</h1>
-        {state.matches("who") && <WhoForm onSubmit={handleSubmitWho} />}
+        <WhoForm onSubmit={handleSubmitWho} />
         <ul>
           {state.context.userNameLocal && (
             <li>
               {state.context.userNameLocal} ({"<=="} that's you!)
             </li>
           )}
-          {state.context.friendsByUserName.serialize().map(({ userName }) => (
+          {[...state.context.friendsByUserName.values()].map(({ userName }) => (
             <li key={userName}>{userName}</li>
           ))}
         </ul>
       </section>
-      {(state.matches("what") || state.matches("respondToInvites.waiting")) && (
-        <section>
-          <h1>What are we doing here?</h1>
-          <AcceptInviteForm
-            games={gamesEnabled}
-            invitesRecievedByUserName={state.context.invitesRecievedByUserName}
-            onAccept={handleAcceptInvite}
-          />
-          <h2>Choose a game</h2>
-          <SelectGameForm
-            games={gamesEnabled}
-            selectedGameId={state.context.selectedGameId}
-            onChange={handleChangeSelectedGame}
-          />
-          <h2>Invite friends</h2>
-          <InviteForm
-            friendsByUserName={state.context.friendsByUserName}
-            onSubmit={handleSubmitInvites}
-          />
-        </section>
-      )}
+      <section>
+        <h1>What are we doing here?</h1>
+        <AcceptInviteForm
+          games={gamesEnabled}
+          invitesRecievedByUserName={state.context.invitesRecievedByUserName}
+          onAccept={handleAcceptInvite}
+        />
+        <h2>Choose a game</h2>
+        <SelectGameForm
+          games={gamesEnabled}
+          selectedGameId={state.context.selectedGameId}
+          onChange={handleChangeSelectedGame}
+        />
+        <h2>Invite friends</h2>
+        <InviteForm
+          friendsByUserName={state.context.friendsByUserName}
+          onSubmit={handleSubmitInvites}
+        />
+      </section>
       Current state: {JSON.stringify(state.value)}
       <footer>
         <small>
