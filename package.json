@@ -17,7 +17,7 @@
     "express": "^4.16.4",
     "html-webpack-plugin": "^4.3.0",
     "jsx-loader": "^0.13.2",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.21",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
     "socket.io": "^2.3.0",
